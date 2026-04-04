@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import Motorcycle, Tag
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/api/motorcycles", tags=["motorcycles"])
 def list_motorcycles(
     maker: str | None = None,
     tag_ids: list[int] = Query(default=[]),
+    or_tag_ids: list[int] = Query(default=[]),
     q: str | None = None,
     displacement_min: int | None = None,
     displacement_max: int | None = None,
@@ -27,9 +29,20 @@ def list_motorcycles(
         query = query.filter(Motorcycle.maker == maker)
     if q:
         query = query.filter(Motorcycle.name.ilike(f"%{q}%"))
+    # AND タグ（単一選択モードのカテゴリ）: 各タグを個別にAND
     if tag_ids:
         for tid in tag_ids:
             query = query.filter(Motorcycle.tags.any(Tag.id == tid))
+    # OR タグ（複数選択モードのカテゴリ）: カテゴリごとにグループ化してOR、カテゴリ間はAND
+    if or_tag_ids:
+        or_tags = db.query(Tag).filter(Tag.id.in_(or_tag_ids)).all()
+        cats: dict[str, list[int]] = {}
+        for t in or_tags:
+            cats.setdefault(t.category, []).append(t.id)
+        for cat_tag_ids in cats.values():
+            query = query.filter(
+                or_(*(Motorcycle.tags.any(Tag.id == tid) for tid in cat_tag_ids))
+            )
     # レンジフィルタ
     if displacement_min is not None:
         query = query.filter(Motorcycle.displacement >= displacement_min)

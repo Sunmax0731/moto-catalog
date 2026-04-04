@@ -35,6 +35,7 @@ export default function CatalogPage() {
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
+  const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
     displacement: { min: "", max: "" },
@@ -51,19 +52,60 @@ export default function CatalogPage() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchQuery) params.set("q", searchQuery);
-    selectedTags.forEach((id) => params.append("tag_ids", String(id)));
+    // 単一選択カテゴリのタグはAND（tag_ids）、複数選択カテゴリはOR（or_tag_ids）
+    selectedTags.forEach((id) => {
+      const tag = tags.find((t) => t.id === id);
+      if (tag && singleSelectCats.has(tag.category)) {
+        params.append("tag_ids", String(id));
+      } else {
+        params.append("or_tag_ids", String(id));
+      }
+    });
     for (const field of RANGE_FIELDS) {
       const r = ranges[field.key];
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
 
   const toggleTag = (id: number) => {
+    const tag = tags.find((t) => t.id === id);
     setSelectedTags((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        // 単一選択モードの場合、同一カテゴリの他のタグを解除
+        if (tag && singleSelectCats.has(tag.category)) {
+          tags
+            .filter((t) => t.category === tag.category && t.id !== id)
+            .forEach((t) => next.delete(t.id));
+        }
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectionMode = (cat: string) => {
+    setSingleSelectCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        next.delete(cat);
+      } else {
+        next.add(cat);
+        // 単一選択に切替時、カテゴリ内で2つ以上選択されていたら最後の1つだけ残す
+        const catTagIds = tags.filter((t) => t.category === cat).map((t) => t.id);
+        const selected = catTagIds.filter((id) => selectedTags.has(id));
+        if (selected.length > 1) {
+          setSelectedTags((prevTags) => {
+            const nextTags = new Set(prevTags);
+            selected.slice(0, -1).forEach((id) => nextTags.delete(id));
+            return nextTags;
+          });
+        }
+      }
       return next;
     });
   };
@@ -85,6 +127,7 @@ export default function CatalogPage() {
 
   const clearAll = () => {
     setSelectedTags(new Set());
+    setSingleSelectCats(new Set());
     setSearchQuery("");
     setRanges({
       displacement: { min: "", max: "" },
@@ -215,34 +258,62 @@ export default function CatalogPage() {
           return (
             <div key={cat} style={{ marginBottom: 8 }}>
               <div
-                onClick={() => toggleCollapse(cat)}
                 style={{
-                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
                   marginBottom: 4,
                 }}
               >
-                <span style={{ fontSize: 11, color: "#999" }}>
-                  {isCollapsed ? "+" : "-"}
-                </span>
-                <strong style={{ fontSize: 13 }}>
-                  {CATEGORY_LABEL[cat] ?? cat}
-                </strong>
-                {selectedCount > 0 && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      background: "#1976d2",
-                      color: "#fff",
-                      borderRadius: 10,
-                      padding: "1px 7px",
-                    }}
-                  >
-                    {selectedCount}
+                <div
+                  onClick={() => toggleCollapse(cat)}
+                  style={{
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flex: 1,
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: "#999" }}>
+                    {isCollapsed ? "+" : "-"}
                   </span>
-                )}
+                  <strong style={{ fontSize: 13 }}>
+                    {CATEGORY_LABEL[cat] ?? cat}
+                  </strong>
+                  {selectedCount > 0 && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        background: "#1976d2",
+                        color: "#fff",
+                        borderRadius: 10,
+                        padding: "1px 7px",
+                      }}
+                    >
+                      {selectedCount}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelectionMode(cat);
+                  }}
+                  title={singleSelectCats.has(cat) ? "単一選択モード（クリックで複数選択に切替）" : "複数選択モード（クリックで単一選択に切替）"}
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 8px",
+                    borderRadius: 10,
+                    border: "1px solid #bbb",
+                    background: singleSelectCats.has(cat) ? "#f5f5f5" : "#e3f2fd",
+                    color: singleSelectCats.has(cat) ? "#777" : "#1565c0",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {singleSelectCats.has(cat) ? "単一" : "複数"}
+                </button>
               </div>
               {!isCollapsed && (
                 <div style={{ paddingLeft: 18 }}>
