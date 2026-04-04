@@ -12,6 +12,14 @@ def list_motorcycles(
     maker: str | None = None,
     tag_ids: list[int] = Query(default=[]),
     q: str | None = None,
+    displacement_min: int | None = None,
+    displacement_max: int | None = None,
+    power_min: float | None = None,
+    power_max: float | None = None,
+    torque_min: float | None = None,
+    torque_max: float | None = None,
+    seat_height_min: int | None = None,
+    seat_height_max: int | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
@@ -22,6 +30,23 @@ def list_motorcycles(
     if tag_ids:
         for tid in tag_ids:
             query = query.filter(Motorcycle.tags.any(Tag.id == tid))
+    # レンジフィルタ
+    if displacement_min is not None:
+        query = query.filter(Motorcycle.displacement >= displacement_min)
+    if displacement_max is not None:
+        query = query.filter(Motorcycle.displacement <= displacement_max)
+    if power_min is not None:
+        query = query.filter(Motorcycle.max_power >= power_min)
+    if power_max is not None:
+        query = query.filter(Motorcycle.max_power <= power_max)
+    if torque_min is not None:
+        query = query.filter(Motorcycle.max_torque >= torque_min)
+    if torque_max is not None:
+        query = query.filter(Motorcycle.max_torque <= torque_max)
+    if seat_height_min is not None:
+        query = query.filter(Motorcycle.seat_height >= seat_height_min)
+    if seat_height_max is not None:
+        query = query.filter(Motorcycle.seat_height <= seat_height_max)
     return query.all()
 
 

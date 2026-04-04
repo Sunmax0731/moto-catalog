@@ -14,6 +14,9 @@ class MotorcycleOut(BaseModel):
     maker: str
     displacement: int | None
     year: int | None
+    max_power: float | None
+    max_torque: float | None
+    seat_height: int | None
     description: str | None
     image_url: str | None
     tags: list[TagOut]
