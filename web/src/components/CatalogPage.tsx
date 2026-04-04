@@ -35,6 +35,7 @@ export default function CatalogPage() {
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
+  const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
     displacement: { min: "", max: "" },
@@ -43,6 +44,7 @@ export default function CatalogPage() {
     seat_height: { min: "", max: "" },
   });
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
@@ -51,19 +53,57 @@ export default function CatalogPage() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchQuery) params.set("q", searchQuery);
-    selectedTags.forEach((id) => params.append("tag_ids", String(id)));
+    selectedTags.forEach((id) => {
+      const tag = tags.find((t) => t.id === id);
+      if (tag && singleSelectCats.has(tag.category)) {
+        params.append("tag_ids", String(id));
+      } else {
+        params.append("or_tag_ids", String(id));
+      }
+    });
     for (const field of RANGE_FIELDS) {
       const r = ranges[field.key];
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
 
   const toggleTag = (id: number) => {
+    const tag = tags.find((t) => t.id === id);
     setSelectedTags((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (tag && singleSelectCats.has(tag.category)) {
+          tags
+            .filter((t) => t.category === tag.category && t.id !== id)
+            .forEach((t) => next.delete(t.id));
+        }
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectionMode = (cat: string) => {
+    setSingleSelectCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        next.delete(cat);
+      } else {
+        next.add(cat);
+        const catTagIds = tags.filter((t) => t.category === cat).map((t) => t.id);
+        const selected = catTagIds.filter((id) => selectedTags.has(id));
+        if (selected.length > 1) {
+          setSelectedTags((prevTags) => {
+            const nextTags = new Set(prevTags);
+            selected.slice(0, -1).forEach((id) => nextTags.delete(id));
+            return nextTags;
+          });
+        }
+      }
       return next;
     });
   };
@@ -85,6 +125,7 @@ export default function CatalogPage() {
 
   const clearAll = () => {
     setSelectedTags(new Set());
+    setSingleSelectCats(new Set());
     setSearchQuery("");
     setRanges({
       displacement: { min: "", max: "" },
@@ -103,166 +144,99 @@ export default function CatalogPage() {
     tags.some((t) => t.category === cat)
   );
 
-  return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
-      <header style={{ marginBottom: 20 }}>
-        <h1 style={{ margin: "0 0 4px", fontSize: 28 }}>バイク図鑑</h1>
-        <p style={{ color: "#666", margin: 0 }}>
-          タグやスペックで絞り込んでお気に入りの一台を見つけよう
-        </p>
-      </header>
-
-      {/* 検索バー + クリアボタン */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+  const sidebarContent = (
+    <>
+      <div className="filter-search">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="search-icon">
+          <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
         <input
           type="text"
           placeholder="車名で検索..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            padding: "8px 16px",
-            fontSize: 15,
-            width: 320,
-            borderRadius: 6,
-            border: "1px solid #ccc",
-          }}
+          className="search-input"
         />
-        {hasFilters && (
-          <button
-            onClick={clearAll}
-            style={{
-              padding: "8px 16px",
-              background: "#e53935",
-              color: "#fff",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 13,
-            }}
-          >
-            条件クリア
-          </button>
-        )}
-        <span style={{ color: "#888", fontSize: 13, marginLeft: 8 }}>
-          {bikes.length}件 ヒット
-        </span>
       </div>
 
-      {/* フィルタパネル */}
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e0e0e0",
-          borderRadius: 8,
-          padding: 16,
-          marginBottom: 24,
-        }}
-      >
-        {/* レンジフィルタ */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: 12,
-            marginBottom: 16,
-            paddingBottom: 16,
-            borderBottom: "1px solid #eee",
-          }}
-        >
-          {RANGE_FIELDS.map((field) => (
-            <div key={field.key}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#555" }}>
-                {field.label}
-              </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                <input
-                  type="number"
-                  placeholder="最小"
-                  value={ranges[field.key].min}
-                  onChange={(e) => updateRange(field.key, "min", e.target.value)}
-                  style={{
-                    width: 90,
-                    padding: "5px 8px",
-                    borderRadius: 4,
-                    border: "1px solid #ccc",
-                    fontSize: 13,
-                  }}
-                />
-                <span style={{ color: "#999" }}>〜</span>
-                <input
-                  type="number"
-                  placeholder="最大"
-                  value={ranges[field.key].max}
-                  onChange={(e) => updateRange(field.key, "max", e.target.value)}
-                  style={{
-                    width: 90,
-                    padding: "5px 8px",
-                    borderRadius: 4,
-                    border: "1px solid #ccc",
-                    fontSize: 13,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+      {hasFilters && (
+        <button onClick={clearAll} className="btn-clear">
+          条件クリア
+        </button>
+      )}
 
-        {/* タグフィルタ */}
+      <div className="filter-section">
+        <h3 className="filter-section-title">スペックで絞り込み</h3>
+        {RANGE_FIELDS.map((field) => (
+          <div key={field.key} className="range-field">
+            <label className="range-label">{field.label}</label>
+            <div className="range-inputs">
+              <input
+                type="number"
+                placeholder="最小"
+                value={ranges[field.key].min}
+                onChange={(e) => updateRange(field.key, "min", e.target.value)}
+                className="range-input"
+              />
+              <span className="range-separator">—</span>
+              <input
+                type="number"
+                placeholder="最大"
+                value={ranges[field.key].max}
+                onChange={(e) => updateRange(field.key, "max", e.target.value)}
+                className="range-input"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">タグで絞り込み</h3>
         {sortedCategories.map((cat) => {
           const isCollapsed = collapsedCats.has(cat);
           const catTags = tags.filter((t) => t.category === cat);
           const selectedCount = catTags.filter((t) => selectedTags.has(t.id)).length;
           return (
-            <div key={cat} style={{ marginBottom: 8 }}>
-              <div
-                onClick={() => toggleCollapse(cat)}
-                style={{
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontSize: 11, color: "#999" }}>
-                  {isCollapsed ? "+" : "-"}
-                </span>
-                <strong style={{ fontSize: 13 }}>
-                  {CATEGORY_LABEL[cat] ?? cat}
-                </strong>
-                {selectedCount > 0 && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      background: "#1976d2",
-                      color: "#fff",
-                      borderRadius: 10,
-                      padding: "1px 7px",
-                    }}
+            <div key={cat} className="tag-category">
+              <div className="tag-category-header">
+                <div
+                  onClick={() => toggleCollapse(cat)}
+                  className="tag-category-label"
+                >
+                  <svg
+                    width="12" height="12" viewBox="0 0 12 12"
+                    className="chevron-icon"
+                    style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0)" }}
                   >
-                    {selectedCount}
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </svg>
+                  <span className="tag-category-name">
+                    {CATEGORY_LABEL[cat] ?? cat}
                   </span>
-                )}
+                  {selectedCount > 0 && (
+                    <span className="tag-count-badge">{selectedCount}</span>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSelectionMode(cat);
+                  }}
+                  className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
+                  title={singleSelectCats.has(cat) ? "単一選択モード" : "複数選択モード"}
+                >
+                  {singleSelectCats.has(cat) ? "単一" : "複数"}
+                </button>
               </div>
               {!isCollapsed && (
-                <div style={{ paddingLeft: 18 }}>
+                <div className="tag-list">
                   {catTags.map((tag) => (
                     <button
                       key={tag.id}
                       onClick={() => toggleTag(tag.id)}
-                      style={{
-                        margin: 2,
-                        padding: "3px 12px",
-                        borderRadius: 14,
-                        border: selectedTags.has(tag.id)
-                          ? "1px solid #1565c0"
-                          : "1px solid #bbb",
-                        background: selectedTags.has(tag.id) ? "#1976d2" : "#fff",
-                        color: selectedTags.has(tag.id) ? "#fff" : "#333",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        transition: "all 0.15s",
-                      }}
+                      className={`tag-btn ${selectedTags.has(tag.id) ? "tag-btn-active" : ""}`}
                     >
                       {tag.name}
                     </button>
@@ -273,71 +247,100 @@ export default function CatalogPage() {
           );
         })}
       </div>
+    </>
+  );
 
-      {/* カード一覧 */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {bikes.map((bike) => (
-          <div
-            key={bike.id}
-            style={{
-              border: "1px solid #e0e0e0",
-              borderRadius: 8,
-              padding: 20,
-              background: "#fff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-            }}
+  return (
+    <div className="app-layout">
+      <header className="app-header">
+        <div className="header-content">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="フィルタを開く"
           >
-            <h3 style={{ margin: "0 0 4px", fontSize: 17 }}>{bike.name}</h3>
-            <div style={{ color: "#666", fontSize: 13, marginBottom: 6 }}>
-              {bike.maker} / {bike.displacement}cc / {bike.year}年
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "2px 12px",
-                fontSize: 12,
-                color: "#555",
-                marginBottom: 8,
-              }}
-            >
-              {bike.max_power != null && <span>出力: {bike.max_power} PS</span>}
-              {bike.max_torque != null && <span>トルク: {bike.max_torque} N·m</span>}
-              {bike.seat_height != null && <span>シート高: {bike.seat_height} mm</span>}
-            </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, margin: "0 0 10px", color: "#444" }}>
-              {bike.description}
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="app-title">バイク図鑑</h1>
+            <p className="app-subtitle">
+              タグやスペックで絞り込んでお気に入りの一台を見つけよう
             </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-              {bike.tags.map((t) => (
-                <span
-                  key={t.id}
-                  style={{
-                    display: "inline-block",
-                    fontSize: 10,
-                    background: "#e8eaf6",
-                    color: "#3949ab",
-                    borderRadius: 10,
-                    padding: "2px 8px",
-                  }}
-                >
-                  {t.name}
-                </span>
-              ))}
-            </div>
           </div>
-        ))}
-        {bikes.length === 0 && (
-          <p style={{ color: "#999", gridColumn: "1 / -1" }}>
-            該当するバイクがありません
-          </p>
+          <span className="result-count">{bikes.length}件</span>
+        </div>
+      </header>
+
+      <div className="content-layout">
+        {sidebarOpen && (
+          <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
         )}
+
+        <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
+          {sidebarContent}
+        </aside>
+
+        <main className="main-content">
+          <div className="card-grid">
+            {bikes.map((bike) => (
+              <div key={bike.id} className="bike-card">
+                {bike.image_url && (
+                  <div className="card-image">
+                    <img src={bike.image_url} alt={bike.name} />
+                  </div>
+                )}
+                <div className="card-body">
+                  <div className="card-header-row">
+                    <h3 className="card-title">{bike.name}</h3>
+                    {bike.year && <span className="card-year">{bike.year}年</span>}
+                  </div>
+                  <div className="card-maker">
+                    {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+                  </div>
+                  <div className="card-specs">
+                    {bike.max_power != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">最高出力</span>
+                        <span className="spec-value">{bike.max_power} PS</span>
+                      </div>
+                    )}
+                    {bike.max_torque != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">最大トルク</span>
+                        <span className="spec-value">{bike.max_torque} N·m</span>
+                      </div>
+                    )}
+                    {bike.seat_height != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">シート高</span>
+                        <span className="spec-value">{bike.seat_height} mm</span>
+                      </div>
+                    )}
+                    {bike.displacement != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">排気量</span>
+                        <span className="spec-value">{bike.displacement} cc</span>
+                      </div>
+                    )}
+                  </div>
+                  {bike.description && (
+                    <p className="card-description">{bike.description}</p>
+                  )}
+                  <div className="card-tags">
+                    {bike.tags.map((t) => (
+                      <span key={t.id} className="card-tag">{t.name}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {bikes.length === 0 && (
+              <p className="no-results">該当するバイクがありません</p>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
