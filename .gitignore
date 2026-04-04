@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+*.db
+venv/
+.env
+
+# Node
+web/node_modules/
+web/dist/
