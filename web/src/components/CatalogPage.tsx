@@ -278,63 +278,122 @@ export default function CatalogPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-          gap: 16,
+          gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+          gap: 20,
         }}
       >
         {bikes.map((bike) => (
           <div
             key={bike.id}
+            className="bike-card"
             style={{
-              border: "1px solid #e0e0e0",
-              borderRadius: 8,
-              padding: 20,
+              borderRadius: 12,
               background: "#fff",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              overflow: "hidden",
+              transition: "transform 0.2s, box-shadow 0.2s",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-4px)";
+              e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)";
             }}
           >
-            <h3 style={{ margin: "0 0 4px", fontSize: 17 }}>{bike.name}</h3>
-            <div style={{ color: "#666", fontSize: 13, marginBottom: 6 }}>
-              {bike.maker} / {bike.displacement}cc / {bike.year}年
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "2px 12px",
-                fontSize: 12,
-                color: "#555",
-                marginBottom: 8,
-              }}
-            >
-              {bike.max_power != null && <span>出力: {bike.max_power} PS</span>}
-              {bike.max_torque != null && <span>トルク: {bike.max_torque} N·m</span>}
-              {bike.seat_height != null && <span>シート高: {bike.seat_height} mm</span>}
-            </div>
-            <p style={{ fontSize: 13, lineHeight: 1.6, margin: "0 0 10px", color: "#444" }}>
-              {bike.description}
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-              {bike.tags.map((t) => (
-                <span
-                  key={t.id}
-                  style={{
-                    display: "inline-block",
-                    fontSize: 10,
-                    background: "#e8eaf6",
-                    color: "#3949ab",
-                    borderRadius: 10,
-                    padding: "2px 8px",
-                  }}
-                >
-                  {t.name}
-                </span>
-              ))}
+            {bike.image_url && (
+              <div style={{ width: "100%", height: 180, overflow: "hidden", background: "#f0f0f0" }}>
+                <img
+                  src={bike.image_url}
+                  alt={bike.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            )}
+            <div style={{ padding: "16px 20px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{bike.name}</h3>
+                {bike.year && <span style={{ fontSize: 12, color: "#888" }}>{bike.year}年</span>}
+              </div>
+              <div style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>
+                {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "6px 16px",
+                  fontSize: 12,
+                  marginBottom: 12,
+                  padding: "10px 12px",
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                }}
+              >
+                {bike.max_power != null && (
+                  <div>
+                    <span style={{ color: "#999", fontSize: 10 }}>最高出力</span>
+                    <div style={{ fontWeight: 600, color: "#333" }}>{bike.max_power} PS</div>
+                  </div>
+                )}
+                {bike.max_torque != null && (
+                  <div>
+                    <span style={{ color: "#999", fontSize: 10 }}>最大トルク</span>
+                    <div style={{ fontWeight: 600, color: "#333" }}>{bike.max_torque} N·m</div>
+                  </div>
+                )}
+                {bike.seat_height != null && (
+                  <div>
+                    <span style={{ color: "#999", fontSize: 10 }}>シート高</span>
+                    <div style={{ fontWeight: 600, color: "#333" }}>{bike.seat_height} mm</div>
+                  </div>
+                )}
+                {bike.displacement != null && (
+                  <div>
+                    <span style={{ color: "#999", fontSize: 10 }}>排気量</span>
+                    <div style={{ fontWeight: 600, color: "#333" }}>{bike.displacement} cc</div>
+                  </div>
+                )}
+              </div>
+              {bike.description && (
+                <p style={{
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  margin: "0 0 12px",
+                  color: "#555",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}>
+                  {bike.description}
+                </p>
+              )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {bike.tags.map((t) => (
+                  <span
+                    key={t.id}
+                    style={{
+                      display: "inline-block",
+                      fontSize: 10,
+                      background: "#e8eaf6",
+                      color: "#3949ab",
+                      borderRadius: 10,
+                      padding: "3px 10px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {t.name}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         ))}
         {bikes.length === 0 && (
-          <p style={{ color: "#999", gridColumn: "1 / -1" }}>
+          <p style={{ color: "#999", gridColumn: "1 / -1", textAlign: "center", padding: 40 }}>
             該当するバイクがありません
           </p>
         )}
