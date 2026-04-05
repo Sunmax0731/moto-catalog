@@ -583,6 +583,29 @@ body {
   padding: var(--spacingXXS) var(--spacingS);
 }
 
+/* Share Button */
+.share-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingXS);
+  background: none;
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  font-family: var(--fontFamilyBase);
+  padding: var(--spacingXS) var(--spacingS);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.share-btn:hover {
+  background: var(--colorNeutralBackground3);
+  color: var(--colorBrandForeground1);
+}
+
 .no-results {
   color: var(--colorNeutralForeground4);
   grid-column: 1 / -1;

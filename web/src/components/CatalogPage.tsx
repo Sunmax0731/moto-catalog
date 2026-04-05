@@ -1,6 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchJson } from "../api/client";
 import type { Motorcycle, Tag, RangeFilter } from "../types";
+
+function parseUrlState() {
+  const p = new URLSearchParams(window.location.search);
+  const tagIds = p.getAll("tag_ids").map(Number).filter(Boolean);
+  const orTagIds = p.getAll("or_tag_ids").map(Number).filter(Boolean);
+  return {
+    q: p.get("q") ?? "",
+    tagIds: new Set([...tagIds, ...orTagIds]),
+    ranges: {
+      displacement: { min: p.get("displacement_min") ?? "", max: p.get("displacement_max") ?? "" },
+      power: { min: p.get("power_min") ?? "", max: p.get("power_max") ?? "" },
+      torque: { min: p.get("torque_min") ?? "", max: p.get("torque_max") ?? "" },
+      seat_height: { min: p.get("seat_height_min") ?? "", max: p.get("seat_height_max") ?? "" },
+    },
+  };
+}
 
 const CATEGORY_LABEL: Record<string, string> = {
   maker: "メーカー",
@@ -32,17 +48,13 @@ const RANGE_FIELDS = [
 ] as const;
 
 export default function CatalogPage() {
+  const initial = useRef(parseUrlState());
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<Set<number>>(initial.current.tagIds);
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
-    displacement: { min: "", max: "" },
-    power: { min: "", max: "" },
-    torque: { min: "", max: "" },
-    seat_height: { min: "", max: "" },
-  });
+  const [searchQuery, setSearchQuery] = useState(initial.current.q);
+  const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initial.current.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -67,7 +79,15 @@ export default function CatalogPage() {
       if (r.max) params.set(field.paramMax, r.max);
     }
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
+
+    // URLにフィルタ状態を反映
+    const url = params.toString() ? `?${params}` : window.location.pathname;
+    window.history.replaceState(null, "", url);
   }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
+
+  const copyFilterUrl = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+  }, []);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -269,6 +289,15 @@ export default function CatalogPage() {
               タグやスペックで絞り込んでお気に入りの一台を見つけよう
             </p>
           </div>
+          {hasFilters && (
+            <button className="share-btn" onClick={copyFilterUrl} title="フィルタURLをコピー">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 2H12C13.1 2 14 2.9 14 4V12C14 13.1 13.1 14 12 14H4C2.9 14 2 13.1 2 12V4C2 2.9 2.9 2 4 2H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M6 6H10V2L13 5L10 8V6Z" stroke="currentColor" strokeWidth="1.2" fill="none"/>
+              </svg>
+              URL共有
+            </button>
+          )}
           <span className="result-count">{bikes.length}件</span>
         </div>
       </header>
