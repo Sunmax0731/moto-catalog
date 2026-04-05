@@ -3,12 +3,12 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import Motorcycle, Tag
-from app.schemas import MotorcycleOut, TagOut
+from app.schemas import MotorcycleOut, PaginatedMotorcycles, TagOut
 
 router = APIRouter(prefix="/api/motorcycles", tags=["motorcycles"])
 
 
-@router.get("", response_model=list[MotorcycleOut])
+@router.get("", response_model=PaginatedMotorcycles)
 def list_motorcycles(
     maker: str | None = None,
     tag_ids: list[int] = Query(default=[]),
@@ -22,6 +22,8 @@ def list_motorcycles(
     torque_max: float | None = None,
     seat_height_min: int | None = None,
     seat_height_max: int | None = None,
+    limit: int = 20,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
@@ -60,7 +62,9 @@ def list_motorcycles(
         query = query.filter(Motorcycle.seat_height >= seat_height_min)
     if seat_height_max is not None:
         query = query.filter(Motorcycle.seat_height <= seat_height_max)
-    return query.all()
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total}
 
 
 @router.get("/{motorcycle_id}", response_model=MotorcycleOut)

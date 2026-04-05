@@ -583,6 +583,52 @@ body {
   padding: var(--spacingXXS) var(--spacingS);
 }
 
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacingM);
+  padding: var(--spacingXL) 0;
+}
+
+.pagination-btn {
+  padding: var(--spacingS) var(--spacingXL);
+  font-size: var(--fontSizeBase300);
+  font-family: var(--fontFamilyBase);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--colorNeutralBackground3);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: var(--fontSizeBase300);
+  color: var(--colorNeutralForeground3);
+}
+
+.pagination-size {
+  padding: var(--spacingXS) var(--spacingS);
+  font-size: var(--fontSizeBase200);
+  font-family: var(--fontFamilyBase);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground1);
+  cursor: pointer;
+}
+
 .no-results {
   color: var(--colorNeutralForeground4);
   grid-column: 1 / -1;

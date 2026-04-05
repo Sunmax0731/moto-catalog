@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchJson } from "../api/client";
-import type { Motorcycle, Tag, RangeFilter } from "../types";
+import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 const CATEGORY_LABEL: Record<string, string> = {
   maker: "メーカー",
@@ -43,6 +45,9 @@ export default function CatalogPage() {
     torque: { min: "", max: "" },
     seat_height: { min: "", max: "" },
   });
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [total, setTotal] = useState(0);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -66,8 +71,13 @@ export default function CatalogPage() {
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
-    fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
+    params.set("limit", String(pageSize));
+    params.set("offset", String(page * pageSize));
+    fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`).then((res) => {
+      setBikes(res.items);
+      setTotal(res.total);
+    });
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, page, pageSize]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -127,6 +137,7 @@ export default function CatalogPage() {
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
     setSearchQuery("");
+    setPage(0);
     setRanges({
       displacement: { min: "", max: "" },
       power: { min: "", max: "" },
@@ -269,7 +280,7 @@ export default function CatalogPage() {
               タグやスペックで絞り込んでお気に入りの一台を見つけよう
             </p>
           </div>
-          <span className="result-count">{bikes.length}件</span>
+          <span className="result-count">{total}件</span>
         </div>
       </header>
 
@@ -340,6 +351,36 @@ export default function CatalogPage() {
               <p className="no-results">該当するバイクがありません</p>
             )}
           </div>
+          {total > pageSize && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                前へ
+              </button>
+              <span className="pagination-info">
+                {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} / {total}件
+              </span>
+              <button
+                className="pagination-btn"
+                disabled={(page + 1) * pageSize >= total}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                次へ
+              </button>
+              <select
+                className="pagination-size"
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              >
+                {PAGE_SIZE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s}件</option>
+                ))}
+              </select>
+            </div>
+          )}
         </main>
       </div>
     </div>

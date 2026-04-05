@@ -21,3 +21,8 @@ class MotorcycleOut(BaseModel):
     image_url: str | None
     tags: list[TagOut]
     model_config = {"from_attributes": True}
+
+
+class PaginatedMotorcycles(BaseModel):
+    items: list[MotorcycleOut]
+    total: int
