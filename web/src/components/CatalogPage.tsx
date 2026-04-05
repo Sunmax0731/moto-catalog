@@ -298,6 +298,7 @@ export default function CatalogPage() {
                   </div>
                   <div className="card-maker">
                     {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+                    {bike.model_code && <span className="card-model-code">({bike.model_code})</span>}
                   </div>
                   <div className="card-specs">
                     {bike.max_power != null && (

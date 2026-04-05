@@ -30,5 +30,6 @@ class Motorcycle(Base):
     max_torque = Column(Float)              # N·m
     seat_height = Column(Integer)           # mm
     description = Column(Text)
+    model_code = Column(String)               # 型式（例: PC37, RN32）
     image_url = Column(String)
     tags = relationship("Tag", secondary=motorcycle_tag, backref="motorcycles")

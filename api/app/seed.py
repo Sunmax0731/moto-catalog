@@ -52,10 +52,16 @@ BIKES = [
         "tags": ["HONDA", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "CBR600RR", "maker": "HONDA",
-        "displacement": 599, "year": 2023, "max_power": 121, "max_torque": 63, "seat_height": 820,
-        "description": "ホンダのミドルクラスSS。サーキットでも高い人気を誇る。電子制御満載。",
+        "name": "CBR600RR", "maker": "HONDA", "model_code": "PC40",
+        "displacement": 599, "year": 2013, "max_power": 120, "max_torque": 66, "seat_height": 820,
+        "description": "PC40型CBR600RR。2007年登場の第4世代で、軽量・コンパクト化を追求したミドルSS。",
         "tags": ["HONDA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
+    },
+    {
+        "name": "CBR600RR", "maker": "HONDA", "model_code": "PC37",
+        "displacement": 599, "year": 2005, "max_power": 118, "max_torque": 66, "seat_height": 820,
+        "description": "PC37型CBR600RR。2003年登場の第3世代。ユニットプロリンクサスペンション初採用モデル。",
+        "tags": ["HONDA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS無し", "セルスタート"],
     },
     {
         "name": "CRF250L", "maker": "HONDA",
@@ -175,10 +181,22 @@ BIKES = [
         "tags": ["YAMAHA", "ネオクラシック", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "直列", "単気筒", "2バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS無し", "キックスタート"],
     },
     {
-        "name": "YZF-R1", "maker": "YAMAHA",
+        "name": "YZF-R1", "maker": "YAMAHA", "model_code": "RN65",
         "displacement": 997, "year": 2019, "max_power": 200, "max_torque": 113, "seat_height": 855,
-        "description": "クロスプレーンエンジン搭載のフラッグシップSS。MotoGP M1の技術を受け継ぐ。",
+        "description": "RN65型YZF-R1。2015年登場のクロスプレーンエンジン搭載第6世代。MotoGP M1直系技術。",
         "tags": ["YAMAHA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
+    },
+    {
+        "name": "YZF-R1", "maker": "YAMAHA", "model_code": "RN32",
+        "displacement": 997, "year": 2009, "max_power": 182, "max_torque": 115, "seat_height": 835,
+        "description": "RN32型YZF-R1。2009年登場の第5世代。クロスプレーンクランクシャフト初採用モデル。",
+        "tags": ["YAMAHA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS無し", "セルスタート"],
+    },
+    {
+        "name": "YZF-R1", "maker": "YAMAHA", "model_code": "4XV",
+        "displacement": 998, "year": 1998, "max_power": 150, "max_torque": 108, "seat_height": 815,
+        "description": "初代YZF-R1。1998年登場で998ccリッターSSの概念を変えた革命的モデル。",
+        "tags": ["YAMAHA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "5バルブ", "キャブレター", "湿式クラッチ", "チェーン", "ABS無し", "セルスタート"],
     },
     {
         "name": "YZF-R7", "maker": "YAMAHA",

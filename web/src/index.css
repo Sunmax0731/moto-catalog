@@ -525,6 +525,12 @@ body {
   margin-bottom: var(--spacingM);
 }
 
+.card-model-code {
+  font-size: var(--fontSizeBase200);
+  color: var(--colorNeutralForeground4);
+  margin-left: var(--spacingXS);
+}
+
 .card-specs {
   display: grid;
   grid-template-columns: 1fr 1fr;

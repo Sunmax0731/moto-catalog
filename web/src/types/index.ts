@@ -14,6 +14,7 @@ export interface Motorcycle {
   max_torque: number | null;
   seat_height: number | null;
   description: string | null;
+  model_code: string | null;
   image_url: string | null;
   tags: Tag[];
 }
