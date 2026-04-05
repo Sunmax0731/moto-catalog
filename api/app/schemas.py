@@ -18,6 +18,7 @@ class MotorcycleOut(BaseModel):
     max_torque: float | None
     seat_height: int | None
     description: str | None
+    fuel_economy: float | None
     image_url: str | None
     tags: list[TagOut]
     model_config = {"from_attributes": True}
