@@ -30,6 +30,10 @@ class Motorcycle(Base):
     max_torque = Column(Float)              # N·m
     seat_height = Column(Integer)           # mm
     description = Column(Text)
+    model_code = Column(String)               # 型式（例: PC37, RN32）
+    wet_weight = Column(Integer)              # kg (装備重量)
+    price = Column(Integer)                   # 万円 (税込参考価格)
     fuel_economy = Column(Float)              # km/L (WMTCモード)
+    status = Column(String, default="current")  # "current" or "discontinued"
     image_url = Column(String)
     tags = relationship("Tag", secondary=motorcycle_tag, backref="motorcycles")

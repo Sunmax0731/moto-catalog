@@ -14,7 +14,11 @@ export interface Motorcycle {
   max_torque: number | null;
   seat_height: number | null;
   description: string | null;
+  model_code: string | null;
+  wet_weight: number | null;
+  price: number | null;
   fuel_economy: number | null;
+  status: string | null;
   image_url: string | null;
   tags: Tag[];
 }
@@ -22,4 +26,9 @@ export interface Motorcycle {
 export interface RangeFilter {
   min: string;
   max: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
 }

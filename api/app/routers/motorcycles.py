@@ -3,12 +3,12 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.models import Motorcycle, Tag
-from app.schemas import MotorcycleOut, TagOut
+from app.schemas import MotorcycleOut, PaginatedMotorcycles, TagOut
 
 router = APIRouter(prefix="/api/motorcycles", tags=["motorcycles"])
 
 
-@router.get("", response_model=list[MotorcycleOut])
+@router.get("", response_model=PaginatedMotorcycles)
 def list_motorcycles(
     maker: str | None = None,
     tag_ids: list[int] = Query(default=[]),
@@ -22,6 +22,12 @@ def list_motorcycles(
     torque_max: float | None = None,
     seat_height_min: int | None = None,
     seat_height_max: int | None = None,
+    weight_min: int | None = None,
+    weight_max: int | None = None,
+    status: str | None = None,
+    sort: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
@@ -60,7 +66,30 @@ def list_motorcycles(
         query = query.filter(Motorcycle.seat_height >= seat_height_min)
     if seat_height_max is not None:
         query = query.filter(Motorcycle.seat_height <= seat_height_max)
-    return query.all()
+    if weight_min is not None:
+        query = query.filter(Motorcycle.wet_weight >= weight_min)
+    if weight_max is not None:
+        query = query.filter(Motorcycle.wet_weight <= weight_max)
+    if status:
+        query = query.filter(Motorcycle.status == status)
+    # ソート
+    sort_map = {
+        "displacement_asc": Motorcycle.displacement.asc(),
+        "displacement_desc": Motorcycle.displacement.desc(),
+        "power_asc": Motorcycle.max_power.asc(),
+        "power_desc": Motorcycle.max_power.desc(),
+        "seat_height_asc": Motorcycle.seat_height.asc(),
+        "seat_height_desc": Motorcycle.seat_height.desc(),
+        "weight_asc": Motorcycle.wet_weight.asc(),
+        "weight_desc": Motorcycle.wet_weight.desc(),
+        "price_asc": Motorcycle.price.asc(),
+        "price_desc": Motorcycle.price.desc(),
+    }
+    if sort and sort in sort_map:
+        query = query.order_by(sort_map[sort])
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total}
 
 
 @router.get("/{motorcycle_id}", response_model=MotorcycleOut)
