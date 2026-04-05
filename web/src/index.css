@@ -555,6 +555,16 @@ body {
   color: var(--colorNeutralForeground1);
 }
 
+.spec-highway-ok {
+  color: #0e7a0d;
+  font-weight: var(--fontWeightBold);
+}
+
+.spec-highway-ng {
+  color: var(--colorStatusDangerForeground1);
+  font-weight: var(--fontWeightBold);
+}
+
 .card-description {
   font-size: var(--fontSizeBase300);
   line-height: var(--lineHeightBase300);

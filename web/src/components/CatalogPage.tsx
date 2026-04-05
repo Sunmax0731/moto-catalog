@@ -16,10 +16,12 @@ const CATEGORY_LABEL: Record<string, string> = {
   drive: "駆動方式",
   abs: "ABS",
   start: "始動方式",
+  usage: "用途・シーン",
+  luggage: "積載性",
 };
 
 const CATEGORY_ORDER = [
-  "maker", "type", "cooling", "engine_layout", "cylinders",
+  "maker", "type", "usage", "luggage", "cooling", "engine_layout", "cylinders",
   "valves_per_cylinder", "fuel_system", "frame", "suspension",
   "clutch", "drive", "abs", "start",
 ];
@@ -322,6 +324,14 @@ export default function CatalogPage() {
                       <div className="spec-item">
                         <span className="spec-label">排気量</span>
                         <span className="spec-value">{bike.displacement} cc</span>
+                      </div>
+                    )}
+                    {bike.displacement != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">高速道路</span>
+                        <span className={`spec-value ${bike.displacement > 125 ? "spec-highway-ok" : "spec-highway-ng"}`}>
+                          {bike.displacement > 125 ? "走行可" : "不可"}
+                        </span>
                       </div>
                     )}
                   </div>
