@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { fetchJson } from "../api/client";
-import type { Motorcycle, Tag, RangeFilter } from "../types";
+import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
 
 const CATEGORY_LABEL: Record<string, string> = {
   maker: "メーカー",
@@ -22,10 +22,12 @@ const CATEGORY_LABEL: Record<string, string> = {
   riding_mode: "ライディングモード",
   quickshifter: "クイックシフター",
   meter_type: "メーター",
+  usage: "用途・シーン",
+  luggage: "積載性",
 };
 
 const CATEGORY_ORDER = [
-  "maker", "type", "riding_position", "transmission", "cooling",
+  "maker", "type", "usage", "luggage", "riding_position", "transmission", "cooling",
   "engine_layout", "cylinders", "valves_per_cylinder", "fuel_system",
   "frame", "suspension", "clutch", "drive", "abs", "start",
   "traction_control", "riding_mode", "quickshifter", "meter_type",
@@ -38,6 +40,26 @@ function getRunningCostInfo(displacement: number | null, fuelEconomy: number | n
   const inspectionCost = needsInspection ? "約5〜7万円/2年" : "不要";
   const fuelCostPerYear = fuelEconomy ? `約${Math.round(10000 / fuelEconomy * 170 / 1000 * 10) / 10}万円` : null;
   return { needsInspection, insuranceClass, inspectionCost, fuelCostPerYear };
+}
+
+function getFootReach(heightCm: number, seatHeightMm: number): string {
+  const inseam = heightCm * 0.45 * 10; // mm
+  const diff = inseam - seatHeightMm;
+  if (diff >= 50) return "両足べったり";
+  if (diff >= 0) return "両足つま先";
+  if (diff >= -30) return "片足つま先";
+  return "厳しい";
+}
+
+function loadFavorites(): Set<number> {
+  try {
+    const saved = localStorage.getItem("moto-catalog-favorites");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveFavorites(ids: Set<number>) {
+  localStorage.setItem("moto-catalog-favorites", JSON.stringify([...ids]));
 }
 
 const RANGE_FIELDS = [
@@ -61,20 +83,63 @@ const INSPECTION_OPTIONS = [
   { label: "車検あり（251cc〜）", value: "required" },
 ] as const;
 
+const SORT_OPTIONS = [
+  { label: "デフォルト", value: "" },
+  { label: "排気量（小→大）", value: "displacement_asc" },
+  { label: "排気量（大→小）", value: "displacement_desc" },
+  { label: "馬力（小→大）", value: "power_asc" },
+  { label: "馬力（大→小）", value: "power_desc" },
+  { label: "シート高（低→高）", value: "seat_height_asc" },
+  { label: "シート高（高→低）", value: "seat_height_desc" },
+  { label: "重量（軽→重）", value: "weight_asc" },
+  { label: "重量（重→軽）", value: "weight_desc" },
+  { label: "価格（安→高）", value: "price_asc" },
+  { label: "価格（高→安）", value: "price_desc" },
+] as const;
+
+const STATUS_OPTIONS = [
+  { label: "すべて", value: "" },
+  { label: "現行モデル", value: "current" },
+  { label: "生産終了", value: "discontinued" },
+] as const;
+
+const PAGE_SIZE = 20;
+
+function parseUrlState() {
+  const p = new URLSearchParams(window.location.search);
+  return {
+    q: p.get("q") || "",
+    tags: p.get("tags") ? p.get("tags")!.split(",").map(Number) : [],
+    licenseClass: p.get("license") || "",
+    inspection: p.get("inspection") || "",
+    sortKey: p.get("sort") || "",
+    statusFilter: p.get("status") || "",
+    ranges: {
+      displacement: { min: p.get("dmin") || "", max: p.get("dmax") || "" },
+      power: { min: p.get("pmin") || "", max: p.get("pmax") || "" },
+      torque: { min: p.get("tmin") || "", max: p.get("tmax") || "" },
+      seat_height: { min: p.get("shmin") || "", max: p.get("shmax") || "" },
+    },
+  };
+}
+
 export default function CatalogPage() {
+  const initial = parseUrlState();
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set(initial.tags));
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
-  const [licenseClass, setLicenseClass] = useState("");
-  const [inspection, setInspection] = useState("");
-  const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
-    displacement: { min: "", max: "" },
-    power: { min: "", max: "" },
-    torque: { min: "", max: "" },
-    seat_height: { min: "", max: "" },
-  });
+  const [searchQuery, setSearchQuery] = useState(initial.q);
+  const [licenseClass, setLicenseClass] = useState(initial.licenseClass);
+  const [inspection, setInspection] = useState(initial.inspection);
+  const [sortKey, setSortKey] = useState(initial.sortKey);
+  const [statusFilter, setStatusFilter] = useState(initial.statusFilter);
+  const [favorites, setFavorites] = useState<Set<number>>(loadFavorites);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [userHeight, setUserHeight] = useState("");
+  const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initial.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<number[]>([]);
@@ -83,6 +148,31 @@ export default function CatalogPage() {
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
   }, []);
+
+  // URL同期
+  const syncUrl = useCallback(() => {
+    const p = new URLSearchParams();
+    if (searchQuery) p.set("q", searchQuery);
+    if (selectedTags.size > 0) p.set("tags", [...selectedTags].join(","));
+    if (licenseClass) p.set("license", licenseClass);
+    if (inspection) p.set("inspection", inspection);
+    if (sortKey) p.set("sort", sortKey);
+    if (statusFilter) p.set("status", statusFilter);
+    if (ranges.displacement.min) p.set("dmin", ranges.displacement.min);
+    if (ranges.displacement.max) p.set("dmax", ranges.displacement.max);
+    if (ranges.power.min) p.set("pmin", ranges.power.min);
+    if (ranges.power.max) p.set("pmax", ranges.power.max);
+    if (ranges.torque.min) p.set("tmin", ranges.torque.min);
+    if (ranges.torque.max) p.set("tmax", ranges.torque.max);
+    if (ranges.seat_height.min) p.set("shmin", ranges.seat_height.min);
+    if (ranges.seat_height.max) p.set("shmax", ranges.seat_height.max);
+    const qs = p.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [searchQuery, selectedTags, licenseClass, inspection, sortKey, statusFilter, ranges]);
+
+  useEffect(() => {
+    syncUrl();
+  }, [syncUrl]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -100,7 +190,6 @@ export default function CatalogPage() {
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
-    // 免許区分フィルタ → 排気量上限に変換
     if (licenseClass === "gentsuki") {
       params.set("displacement_max", "50");
     } else if (licenseClass === "kogata") {
@@ -108,14 +197,20 @@ export default function CatalogPage() {
     } else if (licenseClass === "futsu") {
       params.set("displacement_max", "400");
     }
-    // 車検フィルタ → 排気量レンジに変換
     if (inspection === "none") {
       params.set("displacement_max", "250");
     } else if (inspection === "required") {
       params.set("displacement_min", "251");
     }
-    fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection]);
+    if (sortKey) params.set("sort", sortKey);
+    if (statusFilter) params.set("status", statusFilter);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String((page - 1) * PAGE_SIZE));
+    fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`).then((res) => {
+      setBikes(res.items);
+      setTotal(res.total);
+    });
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -133,6 +228,7 @@ export default function CatalogPage() {
       }
       return next;
     });
+    setPage(1);
   };
 
   const toggleSelectionMode = (cat: string) => {
@@ -161,12 +257,22 @@ export default function CatalogPage() {
       ...prev,
       [key]: { ...prev[key], [side]: value },
     }));
+    setPage(1);
   };
 
   const toggleCompare = (id: number) => {
     setCompareIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev
     );
+  };
+
+  const toggleFavorite = (id: number) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      saveFavorites(next);
+      return next;
+    });
   };
 
   const compareBikes = compareIds.map((id) => bikes.find((b) => b.id === id)).filter(Boolean) as Motorcycle[];
@@ -185,12 +291,20 @@ export default function CatalogPage() {
     setSearchQuery("");
     setLicenseClass("");
     setInspection("");
+    setSortKey("");
+    setStatusFilter("");
+    setShowFavoritesOnly(false);
     setRanges({
       displacement: { min: "", max: "" },
       power: { min: "", max: "" },
       torque: { min: "", max: "" },
       seat_height: { min: "", max: "" },
     });
+    setPage(1);
+  };
+
+  const copyFilterUrl = () => {
+    navigator.clipboard.writeText(window.location.href);
   };
 
   const hasFilters =
@@ -198,11 +312,17 @@ export default function CatalogPage() {
     searchQuery !== "" ||
     licenseClass !== "" ||
     inspection !== "" ||
+    sortKey !== "" ||
+    statusFilter !== "" ||
+    showFavoritesOnly ||
     Object.values(ranges).some((r) => r.min || r.max);
 
   const sortedCategories = CATEGORY_ORDER.filter((cat) =>
     tags.some((t) => t.category === cat)
   );
+
+  const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const sidebarContent = (
     <>
@@ -215,16 +335,71 @@ export default function CatalogPage() {
           type="text"
           placeholder="車名で検索..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
           className="search-input"
         />
       </div>
 
       {hasFilters && (
-        <button onClick={clearAll} className="btn-clear">
-          条件クリア
-        </button>
+        <div className="filter-actions">
+          <button onClick={clearAll} className="btn-clear">
+            条件クリア
+          </button>
+          <button onClick={copyFilterUrl} className="btn-copy-url">
+            URLをコピー
+          </button>
+        </div>
       )}
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">表示設定</h3>
+        <div className="range-field">
+          <label className="range-label">並び替え</label>
+          <select
+            value={sortKey}
+            onChange={(e) => { setSortKey(e.target.value); setPage(1); }}
+            className="filter-select"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="range-field">
+          <label className="range-label">ステータス</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="filter-select"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <label className="filter-checkbox">
+          <input
+            type="checkbox"
+            checked={showFavoritesOnly}
+            onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+          />
+          お気に入りのみ表示
+        </label>
+      </div>
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">あなたの体格</h3>
+        <div className="range-field">
+          <label className="range-label">身長 (cm)</label>
+          <input
+            type="number"
+            placeholder="例: 170"
+            value={userHeight}
+            onChange={(e) => setUserHeight(e.target.value)}
+            className="range-input"
+          />
+        </div>
+      </div>
 
       <div className="filter-section">
         <h3 className="filter-section-title">免許・車検で絞り込み</h3>
@@ -232,7 +407,7 @@ export default function CatalogPage() {
           <label className="range-label">免許区分</label>
           <select
             value={licenseClass}
-            onChange={(e) => setLicenseClass(e.target.value)}
+            onChange={(e) => { setLicenseClass(e.target.value); setPage(1); }}
             className="filter-select"
           >
             {LICENSE_OPTIONS.map((opt) => (
@@ -244,7 +419,7 @@ export default function CatalogPage() {
           <label className="range-label">車検有無</label>
           <select
             value={inspection}
-            onChange={(e) => setInspection(e.target.value)}
+            onChange={(e) => { setInspection(e.target.value); setPage(1); }}
             className="filter-select"
           >
             {INSPECTION_OPTIONS.map((opt) => (
@@ -357,7 +532,7 @@ export default function CatalogPage() {
               タグやスペックで絞り込んでお気に入りの一台を見つけよう
             </p>
           </div>
-          <span className="result-count">{bikes.length}件</span>
+          <span className="result-count">{total}件</span>
         </div>
       </header>
 
@@ -372,7 +547,7 @@ export default function CatalogPage() {
 
         <main className="main-content">
           <div className="card-grid">
-            {bikes.map((bike) => (
+            {displayBikes.map((bike) => (
               <div key={bike.id} className="bike-card">
                 <div className="card-image">
                   {bike.image_url ? (
@@ -395,6 +570,16 @@ export default function CatalogPage() {
                       <span className="placeholder-label">{bike.maker}</span>
                     </div>
                   )}
+                  <button
+                    className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(bike.id); }}
+                    aria-label="お気に入り"
+                  >
+                    {favorites.has(bike.id) ? "♥" : "♡"}
+                  </button>
+                  {bike.status === "discontinued" && (
+                    <span className="status-badge status-discontinued">生産終了</span>
+                  )}
                 </div>
                 <div className="card-body">
                   <div className="card-header-row">
@@ -403,6 +588,7 @@ export default function CatalogPage() {
                   </div>
                   <div className="card-maker">
                     {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+                    {bike.model_code && <span className="card-model-code"> ({bike.model_code})</span>}
                   </div>
                   <div className="card-specs">
                     {bike.max_power != null && (
@@ -427,6 +613,32 @@ export default function CatalogPage() {
                       <div className="spec-item">
                         <span className="spec-label">排気量</span>
                         <span className="spec-value">{bike.displacement} cc</span>
+                      </div>
+                    )}
+                    {bike.wet_weight != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">車重</span>
+                        <span className="spec-value">{bike.wet_weight} kg</span>
+                      </div>
+                    )}
+                    {bike.price != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">参考価格</span>
+                        <span className="spec-value">{bike.price}万円</span>
+                      </div>
+                    )}
+                    {bike.displacement != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">高速道路</span>
+                        <span className={`spec-value ${bike.displacement > 125 ? "spec-highway-ok" : "spec-highway-ng"}`}>
+                          {bike.displacement > 125 ? "走行可" : "不可"}
+                        </span>
+                      </div>
+                    )}
+                    {userHeight && bike.seat_height != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">足つき目安</span>
+                        <span className="spec-value spec-foot-reach">{getFootReach(Number(userHeight), bike.seat_height)}</span>
                       </div>
                     )}
                   </div>
@@ -461,10 +673,38 @@ export default function CatalogPage() {
                 </div>
               </div>
             ))}
-            {bikes.length === 0 && (
+            {displayBikes.length === 0 && (
               <p className="no-results">該当するバイクがありません</p>
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button
+                className="pagination-btn"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                前へ
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  className={`pagination-btn ${p === page ? "pagination-btn-active" : ""}`}
+                  onClick={() => setPage(p)}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                className="pagination-btn"
+                disabled={page >= totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                次へ
+              </button>
+            </div>
+          )}
         </main>
       </div>
 
@@ -516,6 +756,8 @@ export default function CatalogPage() {
                     ["最高出力", (b: Motorcycle) => b.max_power != null ? `${b.max_power} PS` : "-"],
                     ["最大トルク", (b: Motorcycle) => b.max_torque != null ? `${b.max_torque} N·m` : "-"],
                     ["シート高", (b: Motorcycle) => b.seat_height != null ? `${b.seat_height} mm` : "-"],
+                    ["車重", (b: Motorcycle) => b.wet_weight != null ? `${b.wet_weight} kg` : "-"],
+                    ["価格", (b: Motorcycle) => b.price != null ? `${b.price}万円` : "-"],
                   ] as [string, (b: Motorcycle) => string][]).map(([label, fn]) => {
                     const vals = compareBikes.map(fn);
                     const allSame = vals.every((v) => v === vals[0]);
