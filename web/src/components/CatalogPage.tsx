@@ -374,11 +374,28 @@ export default function CatalogPage() {
           <div className="card-grid">
             {bikes.map((bike) => (
               <div key={bike.id} className="bike-card">
-                {bike.image_url && (
-                  <div className="card-image">
-                    <img src={bike.image_url} alt={bike.name} />
-                  </div>
-                )}
+                <div className="card-image">
+                  {bike.image_url ? (
+                    <img
+                      src={bike.image_url}
+                      alt={bike.name}
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        (e.target as HTMLImageElement).parentElement!.classList.add("card-image-placeholder");
+                      }}
+                    />
+                  ) : (
+                    <div className="card-image-placeholder">
+                      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                        <path d="M8 38L18 28L24 34L32 26L40 34" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <rect x="6" y="8" width="36" height="32" rx="3" stroke="currentColor" strokeWidth="2" />
+                        <circle cx="18" cy="18" r="3" stroke="currentColor" strokeWidth="2" />
+                      </svg>
+                      <span className="placeholder-label">{bike.maker}</span>
+                    </div>
+                  )}
+                </div>
                 <div className="card-body">
                   <div className="card-header-row">
                     <h3 className="card-title">{bike.name}</h3>
