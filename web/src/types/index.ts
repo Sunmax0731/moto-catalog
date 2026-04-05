@@ -15,6 +15,7 @@ export interface Motorcycle {
   seat_height: number | null;
   description: string | null;
   image_url: string | null;
+  status: string | null;
   tags: Tag[];
 }
 

@@ -46,7 +46,7 @@ BIKES = [
     # HONDA (18車種)
     # ============================================================
     {
-        "name": "CB400 SUPER FOUR", "maker": "HONDA",
+        "name": "CB400 SUPER FOUR", "maker": "HONDA", "status": "discontinued",
         "displacement": 399, "year": 2022, "max_power": 56, "max_torque": 39, "seat_height": 755,
         "description": "ホンダの名車。教習車としても有名な直列4気筒ネイキッド。HYPER VTECによる可変バルブが特徴。",
         "tags": ["HONDA", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -148,7 +148,7 @@ BIKES = [
         "tags": ["HONDA", "アドベンチャー", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "Hawk 11", "maker": "HONDA",
+        "name": "Hawk 11", "maker": "HONDA", "status": "discontinued",
         "displacement": 1082, "year": 2022, "max_power": 102, "max_torque": 104, "seat_height": 820,
         "description": "FRPロケットカウルを纏うカフェレーサー。アフリカツインの並列2気筒を搭載した日本市場専用モデル。",
         "tags": ["HONDA", "ネオクラシック", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -169,13 +169,13 @@ BIKES = [
         "tags": ["YAMAHA", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "三気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "SR400", "maker": "YAMAHA",
+        "name": "SR400", "maker": "YAMAHA", "status": "discontinued",
         "displacement": 399, "year": 2021, "max_power": 24, "max_torque": 28, "seat_height": 790,
         "description": "ヤマハの空冷単気筒。キックスタート専用のクラシックバイク。43年間愛された名車。",
         "tags": ["YAMAHA", "ネオクラシック", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "直列", "単気筒", "2バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS無し", "キックスタート"],
     },
     {
-        "name": "YZF-R1", "maker": "YAMAHA",
+        "name": "YZF-R1", "maker": "YAMAHA", "status": "discontinued",
         "displacement": 997, "year": 2019, "max_power": 200, "max_torque": 113, "seat_height": 855,
         "description": "クロスプレーンエンジン搭載のフラッグシップSS。MotoGP M1の技術を受け継ぐ。",
         "tags": ["YAMAHA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
@@ -229,7 +229,7 @@ BIKES = [
         "tags": ["YAMAHA", "アドベンチャー", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "BOLT", "maker": "YAMAHA",
+        "name": "BOLT", "maker": "YAMAHA", "status": "discontinued",
         "displacement": 941, "year": 2013, "max_power": 52, "max_torque": 80, "seat_height": 690,
         "description": "空冷Vツインのアメリカンクルーザー。低いシート高とボバースタイルのデザインが特徴。",
         "tags": ["YAMAHA", "クルーザー", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "V型", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "ベルトドライブ", "ABS", "セルスタート"],
@@ -262,7 +262,7 @@ BIKES = [
         "tags": ["SUZUKI", "アドベンチャー", "油冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "単気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "GSX-R1000R", "maker": "SUZUKI",
+        "name": "GSX-R1000R", "maker": "SUZUKI", "status": "discontinued",
         "displacement": 998, "year": 2017, "max_power": 202, "max_torque": 110, "seat_height": 825,
         "description": "MotoGP技術を投入したフラッグシップSS。可変バルブタイミング（SR-VVT）を採用。",
         "tags": ["SUZUKI", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
@@ -292,7 +292,7 @@ BIKES = [
         "tags": ["SUZUKI", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "SV650", "maker": "SUZUKI",
+        "name": "SV650", "maker": "SUZUKI", "status": "discontinued",
         "displacement": 645, "year": 2016, "max_power": 72, "max_torque": 63, "seat_height": 785,
         "description": "90度Vツインのスタンダードネイキッド。軽量でバランスが良く、ライディングの基本を学べる名車。",
         "tags": ["SUZUKI", "ネイキッド", "水冷", "テレスコピックフォーク", "モノショック", "トレリスフレーム", "V型", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -316,7 +316,7 @@ BIKES = [
         "tags": ["SUZUKI", "モタード", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "単気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "GSX250R", "maker": "SUZUKI",
+        "name": "GSX250R", "maker": "SUZUKI", "status": "discontinued",
         "displacement": 248, "year": 2017, "max_power": 24, "max_torque": 22, "seat_height": 790,
         "description": "フルカウルの250ccツアラースポーツ。穏やかな出力特性で長距離ツーリングを快適にこなす。",
         "tags": ["SUZUKI", "スーパースポーツ", "水冷", "テレスコピックフォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -385,13 +385,13 @@ BIKES = [
         "tags": ["KAWASAKI", "ネオクラシック", "水冷", "テレスコピックフォーク", "モノショック", "トレリスフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "Ninja ZX-6R", "maker": "KAWASAKI",
+        "name": "Ninja ZX-6R", "maker": "KAWASAKI", "status": "discontinued",
         "displacement": 636, "year": 2019, "max_power": 126, "max_torque": 70, "seat_height": 830,
         "description": "636ccのSS。600ccクラスにプラス36ccで低中速トルクを強化した実戦派モデル。",
         "tags": ["KAWASAKI", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "ZX-14R", "maker": "KAWASAKI",
+        "name": "ZX-14R", "maker": "KAWASAKI", "status": "discontinued",
         "displacement": 1441, "year": 2012, "max_power": 200, "max_torque": 163, "seat_height": 800,
         "description": "1441ccのメガスポーツ。圧倒的パワーと快適性でスポーツツーリングの頂点に君臨する。",
         "tags": ["KAWASAKI", "ツアラー", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -671,6 +671,8 @@ def seed():
     # バイクデータ投入
     for b in BIKES:
         bike_data = {k: v for k, v in b.items() if k != "tags"}
+        if "status" not in bike_data:
+            bike_data["status"] = "current"
         bike = Motorcycle(**bike_data)
         bike.tags = [tags[t] for t in b["tags"]]
         db.add(bike)

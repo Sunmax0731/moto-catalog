@@ -22,6 +22,7 @@ def list_motorcycles(
     torque_max: float | None = None,
     seat_height_min: int | None = None,
     seat_height_max: int | None = None,
+    status: str | None = None,
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
@@ -60,6 +61,8 @@ def list_motorcycles(
         query = query.filter(Motorcycle.seat_height >= seat_height_min)
     if seat_height_max is not None:
         query = query.filter(Motorcycle.seat_height <= seat_height_max)
+    if status:
+        query = query.filter(Motorcycle.status == status)
     return query.all()
 
 

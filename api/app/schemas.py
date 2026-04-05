@@ -19,5 +19,6 @@ class MotorcycleOut(BaseModel):
     seat_height: int | None
     description: str | None
     image_url: str | None
+    status: str | None
     tags: list[TagOut]
     model_config = {"from_attributes": True}

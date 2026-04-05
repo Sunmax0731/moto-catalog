@@ -31,4 +31,5 @@ class Motorcycle(Base):
     seat_height = Column(Integer)           # mm
     description = Column(Text)
     image_url = Column(String)
+    status = Column(String, default="current")  # "current" or "discontinued"
     tags = relationship("Tag", secondary=motorcycle_tag, backref="motorcycles")

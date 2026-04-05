@@ -43,6 +43,7 @@ export default function CatalogPage() {
     torque: { min: "", max: "" },
     seat_height: { min: "", max: "" },
   });
+  const [statusFilter, setStatusFilter] = useState("");
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -66,8 +67,9 @@ export default function CatalogPage() {
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
+    if (statusFilter) params.set("status", statusFilter);
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, statusFilter]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -127,6 +129,7 @@ export default function CatalogPage() {
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
     setSearchQuery("");
+    setStatusFilter("");
     setRanges({
       displacement: { min: "", max: "" },
       power: { min: "", max: "" },
@@ -138,6 +141,7 @@ export default function CatalogPage() {
   const hasFilters =
     selectedTags.size > 0 ||
     searchQuery !== "" ||
+    statusFilter !== "" ||
     Object.values(ranges).some((r) => r.min || r.max);
 
   const sortedCategories = CATEGORY_ORDER.filter((cat) =>
@@ -165,6 +169,25 @@ export default function CatalogPage() {
           条件クリア
         </button>
       )}
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">モデルステータス</h3>
+        <div className="status-filter-buttons">
+          {[
+            { value: "", label: "すべて" },
+            { value: "current", label: "現行モデル" },
+            { value: "discontinued", label: "生産終了" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              className={`status-filter-btn ${statusFilter === opt.value ? "status-filter-active" : ""}`}
+              onClick={() => setStatusFilter(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="filter-section">
         <h3 className="filter-section-title">スペックで絞り込み</h3>
@@ -298,6 +321,11 @@ export default function CatalogPage() {
                   </div>
                   <div className="card-maker">
                     {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+                    {bike.status && (
+                      <span className={`status-badge ${bike.status === "current" ? "status-current" : "status-discontinued"}`}>
+                        {bike.status === "current" ? "現行" : "生産終了"}
+                      </span>
+                    )}
                   </div>
                   <div className="card-specs">
                     {bike.max_power != null && (

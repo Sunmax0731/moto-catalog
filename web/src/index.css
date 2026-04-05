@@ -523,6 +523,57 @@ body {
   line-height: var(--lineHeightBase300);
   color: var(--colorNeutralForeground3);
   margin-bottom: var(--spacingM);
+  display: flex;
+  align-items: center;
+  gap: var(--spacingS);
+}
+
+/* Status Badge */
+.status-badge {
+  font-size: var(--fontSizeBase100);
+  padding: var(--spacingXXS) var(--spacingXS);
+  border-radius: var(--borderRadiusSmall);
+  font-weight: var(--fontWeightSemibold);
+  flex-shrink: 0;
+}
+
+.status-current {
+  background: #e6f4ea;
+  color: #1e7e34;
+}
+
+.status-discontinued {
+  background: var(--colorNeutralBackground4);
+  color: var(--colorNeutralForeground4);
+}
+
+/* Status Filter Buttons */
+.status-filter-buttons {
+  display: flex;
+  gap: var(--spacingXS);
+}
+
+.status-filter-btn {
+  flex: 1;
+  padding: var(--spacingXS) var(--spacingS);
+  font-size: var(--fontSizeBase200);
+  font-family: var(--fontFamilyBase);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1);
+  color: var(--colorNeutralForeground2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.status-filter-btn:hover {
+  background: var(--colorNeutralBackground3);
+}
+
+.status-filter-active {
+  background: var(--colorBrandBackground);
+  color: #fff;
+  border-color: var(--colorBrandBackground);
 }
 
 .card-specs {
