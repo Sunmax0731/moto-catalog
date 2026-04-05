@@ -31,12 +31,25 @@ const RANGE_FIELDS = [
   { key: "seat_height", label: "シート高 (mm)", paramMin: "seat_height_min", paramMax: "seat_height_max" },
 ] as const;
 
+function loadFavorites(): Set<number> {
+  try {
+    const saved = localStorage.getItem("moto-catalog-favorites");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveFavorites(ids: Set<number>) {
+  localStorage.setItem("moto-catalog-favorites", JSON.stringify([...ids]));
+}
+
 export default function CatalogPage() {
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [favorites, setFavorites] = useState<Set<number>>(loadFavorites);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
     displacement: { min: "", max: "" },
     power: { min: "", max: "" },
@@ -114,6 +127,19 @@ export default function CatalogPage() {
       [key]: { ...prev[key], [side]: value },
     }));
   };
+
+  const toggleFavorite = (id: number) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      saveFavorites(next);
+      return next;
+    });
+  };
+
+  const displayedBikes = showFavoritesOnly
+    ? bikes.filter((b) => favorites.has(b.id))
+    : bikes;
 
   const toggleCollapse = (cat: string) => {
     setCollapsedCats((prev) => {
@@ -269,7 +295,17 @@ export default function CatalogPage() {
               タグやスペックで絞り込んでお気に入りの一台を見つけよう
             </p>
           </div>
-          <span className="result-count">{bikes.length}件</span>
+          <button
+            className={`favorites-toggle ${showFavoritesOnly ? "favorites-active" : ""}`}
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            title={showFavoritesOnly ? "すべて表示" : "お気に入りのみ表示"}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill={showFavoritesOnly ? "currentColor" : "none"}>
+              <path d="M10 17.5L8.55 16.15C4.4 12.36 1.5 9.72 1.5 6.5C1.5 3.78 3.62 1.5 6.15 1.5C7.54 1.5 8.88 2.14 10 3.24C11.12 2.14 12.46 1.5 13.85 1.5C16.38 1.5 18.5 3.78 18.5 6.5C18.5 9.72 15.6 12.36 11.45 16.15L10 17.5Z" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            {favorites.size > 0 && <span className="favorites-count">{favorites.size}</span>}
+          </button>
+          <span className="result-count">{displayedBikes.length}件</span>
         </div>
       </header>
 
@@ -284,7 +320,7 @@ export default function CatalogPage() {
 
         <main className="main-content">
           <div className="card-grid">
-            {bikes.map((bike) => (
+            {displayedBikes.map((bike) => (
               <div key={bike.id} className="bike-card">
                 {bike.image_url && (
                   <div className="card-image">
@@ -294,6 +330,15 @@ export default function CatalogPage() {
                 <div className="card-body">
                   <div className="card-header-row">
                     <h3 className="card-title">{bike.name}</h3>
+                    <button
+                      className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
+                      onClick={() => toggleFavorite(bike.id)}
+                      title={favorites.has(bike.id) ? "お気に入り解除" : "お気に入りに追加"}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill={favorites.has(bike.id) ? "currentColor" : "none"}>
+                        <path d="M10 17.5L8.55 16.15C4.4 12.36 1.5 9.72 1.5 6.5C1.5 3.78 3.62 1.5 6.15 1.5C7.54 1.5 8.88 2.14 10 3.24C11.12 2.14 12.46 1.5 13.85 1.5C16.38 1.5 18.5 3.78 18.5 6.5C18.5 9.72 15.6 12.36 11.45 16.15L10 17.5Z" stroke="currentColor" strokeWidth="1.5"/>
+                      </svg>
+                    </button>
                     {bike.year && <span className="card-year">{bike.year}年</span>}
                   </div>
                   <div className="card-maker">
@@ -336,7 +381,7 @@ export default function CatalogPage() {
                 </div>
               </div>
             ))}
-            {bikes.length === 0 && (
+            {displayedBikes.length === 0 && (
               <p className="no-results">該当するバイクがありません</p>
             )}
           </div>
