@@ -24,6 +24,16 @@ const CATEGORY_ORDER = [
   "clutch", "drive", "abs", "start",
 ];
 
+function getFootReach(heightCm: number, seatHeightMm: number): string {
+  // 股下は身長の約45%、足つき時の脚の伸び分を考慮
+  const inseam = heightCm * 0.45 * 10; // mm
+  const diff = inseam - seatHeightMm;
+  if (diff >= 50) return "両足べったり";
+  if (diff >= 0) return "両足つま先";
+  if (diff >= -30) return "片足つま先";
+  return "厳しい";
+}
+
 const RANGE_FIELDS = [
   { key: "displacement", label: "排気量 (cc)", paramMin: "displacement_min", paramMax: "displacement_max" },
   { key: "power", label: "最高出力 (PS)", paramMin: "power_min", paramMax: "power_max" },
@@ -43,6 +53,7 @@ export default function CatalogPage() {
     torque: { min: "", max: "" },
     seat_height: { min: "", max: "" },
   });
+  const [userHeight, setUserHeight] = useState("");
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -165,6 +176,20 @@ export default function CatalogPage() {
           条件クリア
         </button>
       )}
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">あなたの体格</h3>
+        <div className="range-field">
+          <label className="range-label">身長 (cm)</label>
+          <input
+            type="number"
+            placeholder="例: 170"
+            value={userHeight}
+            onChange={(e) => setUserHeight(e.target.value)}
+            className="range-input"
+          />
+        </div>
+      </div>
 
       <div className="filter-section">
         <h3 className="filter-section-title">スペックで絞り込み</h3>
@@ -322,6 +347,12 @@ export default function CatalogPage() {
                       <div className="spec-item">
                         <span className="spec-label">排気量</span>
                         <span className="spec-value">{bike.displacement} cc</span>
+                      </div>
+                    )}
+                    {userHeight && bike.seat_height != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">足つき目安</span>
+                        <span className="spec-value spec-foot-reach">{getFootReach(Number(userHeight), bike.seat_height)}</span>
                       </div>
                     )}
                   </div>

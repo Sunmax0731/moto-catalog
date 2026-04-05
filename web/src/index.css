@@ -555,6 +555,14 @@ body {
   color: var(--colorNeutralForeground1);
 }
 
+.spec-foot-reach {
+  font-weight: var(--fontWeightBold);
+  padding: var(--spacingXXS) var(--spacingXS);
+  border-radius: var(--borderRadiusSmall);
+  background: #e8f4fd;
+  color: var(--colorBrandForeground1);
+}
+
 .card-description {
   font-size: var(--fontSizeBase300);
   line-height: var(--lineHeightBase300);
