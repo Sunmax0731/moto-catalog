@@ -566,6 +566,29 @@ body {
   overflow: hidden;
 }
 
+/* Running Cost */
+.card-running-cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingXS) var(--spacingM);
+  padding: var(--spacingS) var(--spacingM);
+  background: #f9f5e8;
+  border-radius: var(--borderRadiusMedium);
+  margin-bottom: var(--spacingM);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
+  color: var(--colorNeutralForeground2);
+}
+
+.running-cost-label {
+  width: 100%;
+  font-weight: var(--fontWeightSemibold);
+  font-size: var(--fontSizeBase100);
+  color: var(--colorNeutralForeground4);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 .card-tags {
   display: flex;
   flex-wrap: wrap;

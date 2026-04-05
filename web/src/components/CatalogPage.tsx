@@ -24,6 +24,15 @@ const CATEGORY_ORDER = [
   "clutch", "drive", "abs", "start",
 ];
 
+function getRunningCostInfo(displacement: number | null, fuelEconomy: number | null) {
+  if (displacement == null) return null;
+  const needsInspection = displacement > 250;
+  const insuranceClass = displacement <= 125 ? "原付・小型" : displacement <= 250 ? "軽二輪" : "小型二輪";
+  const inspectionCost = needsInspection ? "約5〜7万円/2年" : "不要";
+  const fuelCostPerYear = fuelEconomy ? `約${Math.round(10000 / fuelEconomy * 170 / 1000 * 10) / 10}万円` : null;
+  return { needsInspection, insuranceClass, inspectionCost, fuelCostPerYear };
+}
+
 const RANGE_FIELDS = [
   { key: "displacement", label: "排気量 (cc)", paramMin: "displacement_min", paramMax: "displacement_max" },
   { key: "power", label: "最高出力 (PS)", paramMin: "power_min", paramMax: "power_max" },
@@ -328,6 +337,19 @@ export default function CatalogPage() {
                   {bike.description && (
                     <p className="card-description">{bike.description}</p>
                   )}
+                  {(() => {
+                    const cost = getRunningCostInfo(bike.displacement, bike.fuel_economy);
+                    if (!cost) return null;
+                    return (
+                      <div className="card-running-cost">
+                        <span className="running-cost-label">維持費目安</span>
+                        <span>車検: {cost.inspectionCost}</span>
+                        <span>保険区分: {cost.insuranceClass}</span>
+                        {bike.fuel_economy && <span>燃費: {bike.fuel_economy} km/L</span>}
+                        {cost.fuelCostPerYear && <span>燃料費: {cost.fuelCostPerYear}/年</span>}
+                      </div>
+                    );
+                  })()}
                   <div className="card-tags">
                     {bike.tags.map((t) => (
                       <span key={t.id} className="card-tag">{t.name}</span>
