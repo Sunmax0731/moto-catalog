@@ -12,16 +12,23 @@ const CATEGORY_LABEL: Record<string, string> = {
   cylinders: "気筒数",
   valves_per_cylinder: "バルブ数/気筒",
   fuel_system: "燃料供給",
+  transmission: "ミッション",
   clutch: "クラッチ",
   drive: "駆動方式",
   abs: "ABS",
   start: "始動方式",
+  riding_position: "ライディングポジション",
+  traction_control: "トラクションコントロール",
+  riding_mode: "ライディングモード",
+  quickshifter: "クイックシフター",
+  meter_type: "メーター",
 };
 
 const CATEGORY_ORDER = [
-  "maker", "type", "cooling", "engine_layout", "cylinders",
-  "valves_per_cylinder", "fuel_system", "frame", "suspension",
-  "clutch", "drive", "abs", "start",
+  "maker", "type", "riding_position", "transmission", "cooling",
+  "engine_layout", "cylinders", "valves_per_cylinder", "fuel_system",
+  "frame", "suspension", "clutch", "drive", "abs", "start",
+  "traction_control", "riding_mode", "quickshifter", "meter_type",
 ];
 
 const RANGE_FIELDS = [
@@ -31,12 +38,28 @@ const RANGE_FIELDS = [
   { key: "seat_height", label: "シート高 (mm)", paramMin: "seat_height_min", paramMax: "seat_height_max" },
 ] as const;
 
+const LICENSE_OPTIONS = [
+  { label: "指定なし", value: "" },
+  { label: "原付（〜50cc）", value: "gentsuki" },
+  { label: "小型限定普通二輪（〜125cc）", value: "kogata" },
+  { label: "普通自動二輪（〜400cc）", value: "futsu" },
+  { label: "大型自動二輪（全排気量）", value: "ogata" },
+] as const;
+
+const INSPECTION_OPTIONS = [
+  { label: "指定なし", value: "" },
+  { label: "車検なし（〜250cc）", value: "none" },
+  { label: "車検あり（251cc〜）", value: "required" },
+] as const;
+
 export default function CatalogPage() {
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [licenseClass, setLicenseClass] = useState("");
+  const [inspection, setInspection] = useState("");
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
     displacement: { min: "", max: "" },
     power: { min: "", max: "" },
@@ -66,8 +89,22 @@ export default function CatalogPage() {
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
+    // 免許区分フィルタ → 排気量上限に変換
+    if (licenseClass === "gentsuki") {
+      params.set("displacement_max", "50");
+    } else if (licenseClass === "kogata") {
+      params.set("displacement_max", "125");
+    } else if (licenseClass === "futsu") {
+      params.set("displacement_max", "400");
+    }
+    // 車検フィルタ → 排気量レンジに変換
+    if (inspection === "none") {
+      params.set("displacement_max", "250");
+    } else if (inspection === "required") {
+      params.set("displacement_min", "251");
+    }
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -127,6 +164,8 @@ export default function CatalogPage() {
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
     setSearchQuery("");
+    setLicenseClass("");
+    setInspection("");
     setRanges({
       displacement: { min: "", max: "" },
       power: { min: "", max: "" },
@@ -138,6 +177,8 @@ export default function CatalogPage() {
   const hasFilters =
     selectedTags.size > 0 ||
     searchQuery !== "" ||
+    licenseClass !== "" ||
+    inspection !== "" ||
     Object.values(ranges).some((r) => r.min || r.max);
 
   const sortedCategories = CATEGORY_ORDER.filter((cat) =>
@@ -165,6 +206,34 @@ export default function CatalogPage() {
           条件クリア
         </button>
       )}
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">免許・車検で絞り込み</h3>
+        <div className="range-field">
+          <label className="range-label">免許区分</label>
+          <select
+            value={licenseClass}
+            onChange={(e) => setLicenseClass(e.target.value)}
+            className="filter-select"
+          >
+            {LICENSE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="range-field">
+          <label className="range-label">車検有無</label>
+          <select
+            value={inspection}
+            onChange={(e) => setInspection(e.target.value)}
+            className="filter-select"
+          >
+            {INSPECTION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <div className="filter-section">
         <h3 className="filter-section-title">スペックで絞り込み</h3>
@@ -225,9 +294,9 @@ export default function CatalogPage() {
                     toggleSelectionMode(cat);
                   }}
                   className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
-                  title={singleSelectCats.has(cat) ? "単一選択モード" : "複数選択モード"}
+                  title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
                 >
-                  {singleSelectCats.has(cat) ? "単一" : "複数"}
+                  {singleSelectCats.has(cat) ? "AND" : "OR"}
                 </button>
               </div>
               {!isCollapsed && (
