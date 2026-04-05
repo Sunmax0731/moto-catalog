@@ -30,5 +30,6 @@ class Motorcycle(Base):
     max_torque = Column(Float)              # N·m
     seat_height = Column(Integer)           # mm
     description = Column(Text)
+    fuel_economy = Column(Float)              # km/L (WMTCモード)
     image_url = Column(String)
     tags = relationship("Tag", secondary=motorcycle_tag, backref="motorcycles")
