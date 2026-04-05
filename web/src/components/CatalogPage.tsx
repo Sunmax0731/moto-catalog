@@ -45,6 +45,8 @@ export default function CatalogPage() {
   });
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
@@ -114,6 +116,14 @@ export default function CatalogPage() {
       [key]: { ...prev[key], [side]: value },
     }));
   };
+
+  const toggleCompare = (id: number) => {
+    setCompareIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev
+    );
+  };
+
+  const compareBikes = compareIds.map((id) => bikes.find((b) => b.id === id)).filter(Boolean) as Motorcycle[];
 
   const toggleCollapse = (cat: string) => {
     setCollapsedCats((prev) => {
@@ -333,6 +343,13 @@ export default function CatalogPage() {
                       <span key={t.id} className="card-tag">{t.name}</span>
                     ))}
                   </div>
+                  <button
+                    className={`compare-btn ${compareIds.includes(bike.id) ? "compare-btn-active" : ""}`}
+                    onClick={() => toggleCompare(bike.id)}
+                    disabled={!compareIds.includes(bike.id) && compareIds.length >= 3}
+                  >
+                    {compareIds.includes(bike.id) ? "比較から外す" : "比較に追加"}
+                  </button>
                 </div>
               </div>
             ))}
@@ -342,6 +359,73 @@ export default function CatalogPage() {
           </div>
         </main>
       </div>
+
+      {compareIds.length > 0 && !showCompare && (
+        <div className="compare-tray">
+          <div className="compare-tray-content">
+            <span className="compare-tray-label">比較: {compareIds.length}台選択中</span>
+            <div className="compare-tray-bikes">
+              {compareBikes.map((b) => (
+                <span key={b.id} className="compare-tray-chip">
+                  {b.name}
+                  <button className="compare-chip-remove" onClick={() => toggleCompare(b.id)}>&times;</button>
+                </span>
+              ))}
+            </div>
+            <button
+              className="compare-tray-open"
+              onClick={() => setShowCompare(true)}
+              disabled={compareIds.length < 2}
+            >
+              比較する
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCompare && (
+        <div className="compare-overlay" onClick={() => setShowCompare(false)}>
+          <div className="compare-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="compare-modal-header">
+              <h2>スペック比較</h2>
+              <button className="compare-modal-close" onClick={() => setShowCompare(false)}>&times;</button>
+            </div>
+            <div className="compare-table-wrap">
+              <table className="compare-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {compareBikes.map((b) => (
+                      <th key={b.id}>{b.name}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    ["メーカー", (b: Motorcycle) => b.maker],
+                    ["排気量", (b: Motorcycle) => b.displacement ? `${b.displacement}cc` : "-"],
+                    ["年式", (b: Motorcycle) => b.year ? `${b.year}年` : "-"],
+                    ["最高出力", (b: Motorcycle) => b.max_power != null ? `${b.max_power} PS` : "-"],
+                    ["最大トルク", (b: Motorcycle) => b.max_torque != null ? `${b.max_torque} N·m` : "-"],
+                    ["シート高", (b: Motorcycle) => b.seat_height != null ? `${b.seat_height} mm` : "-"],
+                  ] as [string, (b: Motorcycle) => string][]).map(([label, fn]) => {
+                    const vals = compareBikes.map(fn);
+                    const allSame = vals.every((v) => v === vals[0]);
+                    return (
+                      <tr key={label}>
+                        <td className="compare-label">{label}</td>
+                        {vals.map((v, i) => (
+                          <td key={i} className={!allSame ? "compare-diff" : ""}>{v}</td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
