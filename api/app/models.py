@@ -30,5 +30,7 @@ class Motorcycle(Base):
     max_torque = Column(Float)              # N·m
     seat_height = Column(Integer)           # mm
     description = Column(Text)
+    wet_weight = Column(Integer)              # kg (装備重量)
+    price = Column(Integer)                   # 万円 (税込参考価格)
     image_url = Column(String)
     tags = relationship("Tag", secondary=motorcycle_tag, backref="motorcycles")

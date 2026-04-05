@@ -47,19 +47,19 @@ BIKES = [
     # ============================================================
     {
         "name": "CB400 SUPER FOUR", "maker": "HONDA",
-        "displacement": 399, "year": 2022, "max_power": 56, "max_torque": 39, "seat_height": 755,
+        "displacement": 399, "year": 2022, "max_power": 56, "max_torque": 39, "seat_height": 755, "wet_weight": 201, "price": 88,
         "description": "ホンダの名車。教習車としても有名な直列4気筒ネイキッド。HYPER VTECによる可変バルブが特徴。",
         "tags": ["HONDA", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
         "name": "CBR600RR", "maker": "HONDA",
-        "displacement": 599, "year": 2023, "max_power": 121, "max_torque": 63, "seat_height": 820,
+        "displacement": 599, "year": 2023, "max_power": 121, "max_torque": 63, "seat_height": 820, "wet_weight": 194, "price": 160,
         "description": "ホンダのミドルクラスSS。サーキットでも高い人気を誇る。電子制御満載。",
         "tags": ["HONDA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
         "name": "CRF250L", "maker": "HONDA",
-        "displacement": 249, "year": 2023, "max_power": 24, "max_torque": 23, "seat_height": 830,
+        "displacement": 249, "year": 2023, "max_power": 24, "max_torque": 23, "seat_height": 830, "wet_weight": 140, "price": 60,
         "description": "ホンダの軽量オフロード。街乗りからトレイルまで万能。",
         "tags": ["HONDA", "オフロード", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "単気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
@@ -71,7 +71,7 @@ BIKES = [
     },
     {
         "name": "CBR250RR", "maker": "HONDA",
-        "displacement": 249, "year": 2017, "max_power": 38, "max_torque": 23, "seat_height": 790,
+        "displacement": 249, "year": 2017, "max_power": 38, "max_torque": 23, "seat_height": 790, "wet_weight": 168, "price": 86,
         "description": "水冷2気筒250ccスーパースポーツ。高回転型エンジンとアグレッシブなデザインで250クラスの頂点を狙う。",
         "tags": ["HONDA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
@@ -101,7 +101,7 @@ BIKES = [
     },
     {
         "name": "Rebel 250", "maker": "HONDA",
-        "displacement": 249, "year": 2017, "max_power": 26, "max_torque": 22, "seat_height": 690,
+        "displacement": 249, "year": 2017, "max_power": 26, "max_torque": 22, "seat_height": 690, "wet_weight": 171, "price": 61,
         "description": "690mmの低シート高で初心者にも優しいクルーザー。単気筒エンジンの軽快な走りが人気。",
         "tags": ["HONDA", "クルーザー", "水冷", "テレスコピックフォーク", "モノショック", "ダイヤモンドフレーム", "並列", "単気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
@@ -137,7 +137,7 @@ BIKES = [
     },
     {
         "name": "GB350", "maker": "HONDA",
-        "displacement": 348, "year": 2021, "max_power": 20, "max_torque": 29, "seat_height": 800,
+        "displacement": 348, "year": 2021, "max_power": 20, "max_torque": 29, "seat_height": 800, "wet_weight": 180, "price": 56,
         "description": "空冷単気筒の鼓動感を楽しむネオクラシック。シンプルで美しいデザインが幅広い層に好評。",
         "tags": ["HONDA", "ネオクラシック", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "並列", "単気筒", "2バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
@@ -158,13 +158,13 @@ BIKES = [
     # ============================================================
     {
         "name": "YZF-R25", "maker": "YAMAHA",
-        "displacement": 249, "year": 2023, "max_power": 35, "max_torque": 23.6, "seat_height": 780,
+        "displacement": 249, "year": 2023, "max_power": 35, "max_torque": 23.6, "seat_height": 780, "wet_weight": 169, "price": 69,
         "description": "ヤマハの250ccスポーツ。軽量で扱いやすい二気筒エンジン。",
         "tags": ["YAMAHA", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
         "name": "MT-09", "maker": "YAMAHA",
-        "displacement": 890, "year": 2024, "max_power": 119, "max_torque": 93, "seat_height": 825,
+        "displacement": 890, "year": 2024, "max_power": 119, "max_torque": 93, "seat_height": 825, "wet_weight": 189, "price": 111,
         "description": "ヤマハの三気筒ネイキッド。クロスプレーンエンジンのトルクフルな走りが魅力。",
         "tags": ["YAMAHA", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "直列", "三気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
@@ -268,7 +268,7 @@ BIKES = [
         "tags": ["SUZUKI", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
     },
     {
-        "name": "Hayabusa", "maker": "SUZUKI",
+        "name": "Hayabusa", "maker": "SUZUKI", "wet_weight": 264, "price": 215,
         "displacement": 1339, "year": 2021, "max_power": 188, "max_torque": 149, "seat_height": 800,
         "description": "世界最速を目指した伝説のメガスポーツ。3代目は電子制御技術を大幅に強化。",
         "tags": ["SUZUKI", "ツアラー", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
@@ -280,7 +280,7 @@ BIKES = [
         "tags": ["SUZUKI", "アドベンチャー", "水冷", "倒立フォーク", "モノショック", "ツインスパーフレーム", "V型", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート"],
     },
     {
-        "name": "GSX-8S", "maker": "SUZUKI",
+        "name": "GSX-8S", "maker": "SUZUKI", "wet_weight": 202, "price": 99,
         "displacement": 775, "year": 2023, "max_power": 80, "max_torque": 76, "seat_height": 810,
         "description": "新開発並列2気筒のストリートネイキッド。クロスバランサーで滑らかな回転フィールを実現。",
         "tags": ["SUZUKI", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "ダイヤモンドフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -325,13 +325,13 @@ BIKES = [
     # KAWASAKI (17車種)
     # ============================================================
     {
-        "name": "Ninja ZX-25R", "maker": "KAWASAKI",
+        "name": "Ninja ZX-25R", "maker": "KAWASAKI", "wet_weight": 183, "price": 93,
         "displacement": 249, "year": 2023, "max_power": 45, "max_torque": 21.2, "seat_height": 785,
         "description": "カワサキの250cc4気筒。高回転まで回る刺激的なエンジン。",
         "tags": ["KAWASAKI", "スーパースポーツ", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "Z900RS", "maker": "KAWASAKI",
+        "name": "Z900RS", "maker": "KAWASAKI", "wet_weight": 215, "price": 143,
         "displacement": 948, "year": 2024, "max_power": 111, "max_torque": 98.1, "seat_height": 800,
         "description": "カワサキのネオクラシック。Z1を彷彿とさせるデザインが人気。",
         "tags": ["KAWASAKI", "ネオクラシック", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
@@ -367,7 +367,7 @@ BIKES = [
         "tags": ["KAWASAKI", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "直列", "四気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],
     },
     {
-        "name": "Ninja 400", "maker": "KAWASAKI",
+        "name": "Ninja 400", "maker": "KAWASAKI", "wet_weight": 167, "price": 73,
         "displacement": 399, "year": 2018, "max_power": 48, "max_torque": 37, "seat_height": 785,
         "description": "並列2気筒の軽量スポーツ。サーキットからストリートまで楽しめる400ccの人気車種。",
         "tags": ["KAWASAKI", "スーパースポーツ", "水冷", "テレスコピックフォーク", "モノショック", "トレリスフレーム", "並列", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート"],

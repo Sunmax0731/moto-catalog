@@ -29,6 +29,21 @@ const RANGE_FIELDS = [
   { key: "power", label: "最高出力 (PS)", paramMin: "power_min", paramMax: "power_max" },
   { key: "torque", label: "最大トルク (N·m)", paramMin: "torque_min", paramMax: "torque_max" },
   { key: "seat_height", label: "シート高 (mm)", paramMin: "seat_height_min", paramMax: "seat_height_max" },
+  { key: "weight", label: "車両重量 (kg)", paramMin: "weight_min", paramMax: "weight_max" },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: "", label: "並び替え: なし" },
+  { value: "displacement_asc", label: "排気量: 小→大" },
+  { value: "displacement_desc", label: "排気量: 大→小" },
+  { value: "power_asc", label: "馬力: 小→大" },
+  { value: "power_desc", label: "馬力: 大→小" },
+  { value: "seat_height_asc", label: "シート高: 低→高" },
+  { value: "seat_height_desc", label: "シート高: 高→低" },
+  { value: "weight_asc", label: "重量: 軽→重" },
+  { value: "weight_desc", label: "重量: 重→軽" },
+  { value: "price_asc", label: "価格: 安→高" },
+  { value: "price_desc", label: "価格: 高→安" },
 ] as const;
 
 export default function CatalogPage() {
@@ -37,11 +52,13 @@ export default function CatalogPage() {
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set());
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortKey, setSortKey] = useState("");
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>({
     displacement: { min: "", max: "" },
     power: { min: "", max: "" },
     torque: { min: "", max: "" },
     seat_height: { min: "", max: "" },
+    weight: { min: "", max: "" },
   });
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -66,8 +83,9 @@ export default function CatalogPage() {
       if (r.min) params.set(field.paramMin, r.min);
       if (r.max) params.set(field.paramMax, r.max);
     }
+    if (sortKey) params.set("sort", sortKey);
     fetchJson<Motorcycle[]>(`/motorcycles?${params}`).then(setBikes);
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, sortKey]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -127,17 +145,20 @@ export default function CatalogPage() {
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
     setSearchQuery("");
+    setSortKey("");
     setRanges({
       displacement: { min: "", max: "" },
       power: { min: "", max: "" },
       torque: { min: "", max: "" },
       seat_height: { min: "", max: "" },
+      weight: { min: "", max: "" },
     });
   };
 
   const hasFilters =
     selectedTags.size > 0 ||
     searchQuery !== "" ||
+    sortKey !== "" ||
     Object.values(ranges).some((r) => r.min || r.max);
 
   const sortedCategories = CATEGORY_ORDER.filter((cat) =>
@@ -165,6 +186,19 @@ export default function CatalogPage() {
           条件クリア
         </button>
       )}
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">並び替え</h3>
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value)}
+          className="filter-select"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="filter-section">
         <h3 className="filter-section-title">スペックで絞り込み</h3>
@@ -322,6 +356,18 @@ export default function CatalogPage() {
                       <div className="spec-item">
                         <span className="spec-label">排気量</span>
                         <span className="spec-value">{bike.displacement} cc</span>
+                      </div>
+                    )}
+                    {bike.wet_weight != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">車両重量</span>
+                        <span className="spec-value">{bike.wet_weight} kg</span>
+                      </div>
+                    )}
+                    {bike.price != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">参考価格</span>
+                        <span className="spec-value">{bike.price}万円</span>
                       </div>
                     )}
                   </div>
