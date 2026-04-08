@@ -1,4 +1,4 @@
-"""バイク図鑑シードデータ（拡張版: 96車種）
+"""バイク図鑑シードデータ（拡張版: 97車種）
 データソース:
   - https://bike-lineage.org/
   - https://www.bikebros.co.jp/catalog/
@@ -13,7 +13,7 @@ TAGS = {
         "HONDA", "YAMAHA", "SUZUKI", "KAWASAKI",
         "BMW", "Ducati", "Triumph", "Harley-Davidson",
         "KTM", "Aprilia", "Moto Guzzi", "Indian",
-        "Royal Enfield", "Husqvarna",
+        "Royal Enfield", "Husqvarna", "Ural",
         "MV Agusta", "Bimota", "Buell", "Benelli",
         "SWM", "GASGAS", "Beta", "Sherco",
     ],
@@ -687,6 +687,12 @@ BIKES = [
         "displacement": 349, "year": 2022, "max_power": 20.2, "max_torque": 27, "seat_height": 805,
         "description": "インド発のクラシックバイク。空油冷単気筒のゆったりとした走りとクラシカルなスタイリングが魅力。",
         "tags": ["Royal Enfield", "ネオクラシック", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "並列", "単気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート", "MT 5速", "アップライトポジション", "トラクションコントロール無", "ライディングモード無", "クイックシフター無", "アナログ", "通勤・街乗り", "ツーリング"],
+    },
+    {
+        "name": "Gear Up", "maker": "Ural",
+        "displacement": 749, "year": 2024, "max_power": 41, "max_torque": 57, "seat_height": 825, "wet_weight": 365, "price": 285,
+        "description": "ロシア生まれのサイドカー付きクラシックモデル。水平対向2気筒とシャフトドライブで独特の旅情を味わえる。",
+        "tags": ["Ural", "ネオクラシック", "空冷", "テレスコピックフォーク", "ツインショック", "ダイヤモンドフレーム", "水平対向", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "シャフトドライブ", "ABS", "セルスタート", "MT 4速", "アップライトポジション", "トラクションコントロール無", "ライディングモード無", "クイックシフター無", "アナログ", "ツーリング", "タンデム", "パニアケース対応", "積載性良好"],
     },
     {
         "name": "Svartpilen 401", "maker": "Husqvarna",
