@@ -38,8 +38,7 @@ function getRunningCostInfo(displacement: number | null, fuelEconomy: number | n
   const needsInspection = displacement > 250;
   const insuranceClass = displacement <= 125 ? "原付・小型" : displacement <= 250 ? "軽二輪" : "小型二輪";
   const inspectionCost = needsInspection ? "約5〜7万円/2年" : "不要";
-  const fuelCostPerYear = fuelEconomy ? `約${Math.round(10000 / fuelEconomy * 170 / 1000 * 10) / 10}万円` : null;
-  return { needsInspection, insuranceClass, inspectionCost, fuelCostPerYear };
+  return { needsInspection, insuranceClass, inspectionCost, fuelEconomy };
 }
 
 function getFootReach(heightCm: number, seatHeightMm: number): string {
@@ -635,8 +634,7 @@ export default function CatalogPage() {
                         <span className="running-cost-label">維持費目安</span>
                         <span>車検: {cost.inspectionCost}</span>
                         <span>保険区分: {cost.insuranceClass}</span>
-                        {bike.fuel_economy && <span>燃費: {bike.fuel_economy} km/L</span>}
-                        {cost.fuelCostPerYear && <span>燃料費: {cost.fuelCostPerYear}/年</span>}
+                        {cost.fuelEconomy && <span>燃費: {cost.fuelEconomy} km/L</span>}
                       </div>
                     );
                   })()}
