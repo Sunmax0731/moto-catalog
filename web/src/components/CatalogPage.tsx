@@ -50,6 +50,10 @@ function getFootReach(heightCm: number, seatHeightMm: number): string {
   return "厳しい";
 }
 
+function getPowerToWeight(maxPower: number, wetWeight: number, riderWeight: number): string {
+  return (maxPower / (wetWeight + riderWeight)).toFixed(3);
+}
+
 function getGoogleImageSearchUrl(bike: Pick<Motorcycle, "maker" | "name">) {
   return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bike.maker} ${bike.name} バイク`)}`;
 }
@@ -148,6 +152,7 @@ export default function CatalogPage() {
   const [favorites, setFavorites] = useState<Set<number>>(loadFavorites);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [userHeight, setUserHeight] = useState("");
+  const [userWeight, setUserWeight] = useState("");
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initial.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -506,6 +511,16 @@ export default function CatalogPage() {
             className="range-input"
           />
         </div>
+        <div className="range-field">
+          <label className="range-label">体重 (kg)</label>
+          <input
+            type="number"
+            placeholder="例: 65"
+            value={userWeight}
+            onChange={(e) => setUserWeight(e.target.value)}
+            className="range-input"
+          />
+        </div>
       </div>
 
       <div className="filter-section">
@@ -759,6 +774,14 @@ export default function CatalogPage() {
                       <div className="spec-item">
                         <span className="spec-label">足つき目安</span>
                         <span className="spec-value spec-foot-reach">{getFootReach(Number(userHeight), bike.seat_height)}</span>
+                      </div>
+                    )}
+                    {userWeight && bike.max_power != null && bike.wet_weight != null && (
+                      <div className="spec-item">
+                        <span className="spec-label">PW比(人込み)</span>
+                        <span className="spec-value">
+                          {getPowerToWeight(bike.max_power, bike.wet_weight, Number(userWeight))} PS/kg
+                        </span>
                       </div>
                     )}
                   </div>
