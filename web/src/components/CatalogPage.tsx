@@ -549,42 +549,24 @@ export default function CatalogPage() {
           <div className="card-grid">
             {displayBikes.map((bike) => (
               <div key={bike.id} className="bike-card">
-                <div className="card-image">
-                  {bike.image_url ? (
-                    <img
-                      src={bike.image_url}
-                      alt={bike.name}
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        (e.target as HTMLImageElement).parentElement!.classList.add("card-image-placeholder");
-                      }}
-                    />
-                  ) : (
-                    <div className="card-image-placeholder">
-                      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                        <path d="M8 38L18 28L24 34L32 26L40 34" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <rect x="6" y="8" width="36" height="32" rx="3" stroke="currentColor" strokeWidth="2" />
-                        <circle cx="18" cy="18" r="3" stroke="currentColor" strokeWidth="2" />
-                      </svg>
-                      <span className="placeholder-label">{bike.maker}</span>
-                    </div>
-                  )}
-                  <button
-                    className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(bike.id); }}
-                    aria-label="お気に入り"
-                  >
-                    {favorites.has(bike.id) ? "♥" : "♡"}
-                  </button>
-                  {bike.status === "discontinued" && (
-                    <span className="status-badge status-discontinued">生産終了</span>
-                  )}
-                </div>
                 <div className="card-body">
                   <div className="card-header-row">
-                    <h3 className="card-title">{bike.name}</h3>
-                    {bike.year && <span className="card-year">{bike.year}年</span>}
+                    <div className="card-header-left">
+                      <h3 className="card-title">{bike.name}</h3>
+                      {bike.status === "discontinued" && (
+                        <span className="status-badge status-discontinued">生産終了</span>
+                      )}
+                    </div>
+                    <div className="card-header-right">
+                      {bike.year && <span className="card-year">{bike.year}年</span>}
+                      <button
+                        className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(bike.id); }}
+                        aria-label="お気に入り"
+                      >
+                        {favorites.has(bike.id) ? "♥" : "♡"}
+                      </button>
+                    </div>
                   </div>
                   <div className="card-maker">
                     {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
