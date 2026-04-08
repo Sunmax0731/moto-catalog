@@ -3,10 +3,15 @@
   - https://bike-lineage.org/
   - https://www.bikebros.co.jp/catalog/
 """
+import json
+from pathlib import Path
+
 from app.database import SessionLocal, engine, Base
 from app.models import Motorcycle, Tag
 
 Base.metadata.create_all(bind=engine)
+
+GENERATED_DATA_DIR = Path(__file__).with_name("data") / "bikebros"
 
 TAGS = {
     "maker": [
@@ -817,33 +822,77 @@ BIKES = [
 ]
 
 
+def load_generated_bikes():
+    bikes = []
+    if not GENERATED_DATA_DIR.exists():
+        return bikes
+
+    for path in sorted(GENERATED_DATA_DIR.glob("*.json")):
+        bikes.extend(json.loads(path.read_text(encoding="utf-8")))
+    return bikes
+
+
+def bike_identity_key(bike_data):
+    return (
+        bike_data["maker"],
+        bike_data["name"],
+        bike_data.get("model_code") or "",
+        bike_data.get("year") or 0,
+    )
+
+
 def seed():
     db = SessionLocal()
+    generated_bikes = load_generated_bikes()
+    all_bikes = BIKES + generated_bikes
 
-    if db.query(Tag).count() > 0:
-        print("データ既存のためスキップ（再投入するには moto_catalog.db を削除してください）")
-        db.close()
-        return
+    maker_tags = list(TAGS["maker"])
+    for maker in sorted({bike["maker"] for bike in generated_bikes} - set(maker_tags)):
+        maker_tags.append(maker)
+    required_tags = {**TAGS, "maker": maker_tags}
 
-    # タグ作成
-    tags = {}
-    for category, names in TAGS.items():
+    tags = {tag.name: tag for tag in db.query(Tag).all()}
+    for category, names in required_tags.items():
         for name in names:
-            t = Tag(name=name, category=category)
-            db.add(t)
-            tags[name] = t
+            if name in tags:
+                continue
+            tag = Tag(name=name, category=category)
+            db.add(tag)
+            tags[name] = tag
     db.flush()
 
-    # バイクデータ投入
-    for b in BIKES:
+    existing_bikes = {
+        bike_identity_key({
+            "maker": bike.maker,
+            "name": bike.name,
+            "model_code": bike.model_code,
+            "year": bike.year,
+        }): bike
+        for bike in db.query(Motorcycle).all()
+    }
+
+    created = 0
+    updated = 0
+    for b in all_bikes:
         bike_data = {k: v for k, v in b.items() if k != "tags"}
-        bike = Motorcycle(**bike_data)
-        bike.tags = [tags[t] for t in b["tags"]]
-        db.add(bike)
+        identity = bike_identity_key(b)
+        bike = existing_bikes.get(identity)
+        if bike is None:
+            bike = Motorcycle(**bike_data)
+            db.add(bike)
+            existing_bikes[identity] = bike
+            created += 1
+        else:
+            for key, value in bike_data.items():
+                setattr(bike, key, value)
+            updated += 1
+        bike.tags = [tags[tag_name] for tag_name in b["tags"] if tag_name in tags]
 
     db.commit()
     db.close()
-    print(f"シードデータ投入完了: {len(BIKES)}車種, {sum(len(v) for v in TAGS.values())}タグ")
+    print(
+        f"シードデータ同期完了: 追加 {created} / 更新 {updated} / 総データ {len(all_bikes)} / タグ {sum(len(v) for v in required_tags.values())}"
+    )
 
 
 if __name__ == "__main__":
