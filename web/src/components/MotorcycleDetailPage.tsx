@@ -7,6 +7,19 @@ function getGoogleImageSearchUrl(bike: Pick<Motorcycle, "maker" | "name">) {
   return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bike.maker} ${bike.name} バイク`)}`;
 }
 
+function getUsedMarketAvailability(status: string | null, year: number | null) {
+  if (status !== "discontinued") {
+    return { label: "新車流通中心", tone: "market-current" };
+  }
+  if (year != null && year >= 2015) {
+    return { label: "中古流通 多め", tone: "market-high" };
+  }
+  if (year != null && year >= 2000) {
+    return { label: "中古流通 ふつう", tone: "market-medium" };
+  }
+  return { label: "中古流通 少なめ", tone: "market-low" };
+}
+
 function scoreSimilarity(base: Motorcycle, candidate: Motorcycle) {
   const baseTagIds = new Set(base.tags.map((tag) => tag.id));
   const sharedTags = candidate.tags.filter((tag) => baseTagIds.has(tag.id));
@@ -108,6 +121,8 @@ export default function MotorcycleDetailPage() {
     );
   }
 
+  const availability = getUsedMarketAvailability(bike.status, bike.year);
+
   return (
     <div className="detail-page">
       <div className="detail-shell">
@@ -143,6 +158,10 @@ export default function MotorcycleDetailPage() {
           </div>
 
           <div className="detail-spec-grid">
+            <div className="detail-spec-card">
+              <span className="detail-spec-label">流通目安</span>
+              <strong className={`detail-spec-value market-availability ${availability.tone}`}>{availability.label}</strong>
+            </div>
             <div className="detail-spec-card">
               <span className="detail-spec-label">最高出力</span>
               <strong className="detail-spec-value">{formatValue(bike.max_power, " PS")}</strong>
