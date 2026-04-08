@@ -31,6 +31,7 @@ MAKER_CONFIG = {
     "Vespa": {"id": 17, "slug": "vespa"},
     "KTM": {"id": 33, "slug": "ktm"},
     "Husqvarna": {"id": 38, "slug": "husqvarna"},
+    "KYMCO": {"id": 41, "slug": "kymco"},
     "Indian": {"id": 100, "slug": "indian"},
     "Victory": {"id": 101, "slug": "victory"},
 }
