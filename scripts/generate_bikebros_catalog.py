@@ -32,6 +32,7 @@ MAKER_CONFIG = {
     "KTM": {"id": 33, "slug": "ktm"},
     "Husqvarna": {"id": 38, "slug": "husqvarna"},
     "Indian": {"id": 100, "slug": "indian"},
+    "Victory": {"id": 101, "slug": "victory"},
 }
 
 TYPE_MAP = [
