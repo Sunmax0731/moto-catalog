@@ -1019,11 +1019,19 @@ body {
 /* Pagination */
 .pagination {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: var(--spacingXS);
   margin-top: var(--spacingXXL);
   padding: var(--spacingL) 0;
+}
+
+.pagination-summary {
+  margin-right: var(--spacingS);
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
 }
 
 .pagination-btn {

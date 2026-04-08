@@ -111,7 +111,8 @@ const STATUS_OPTIONS = [
   { label: "生産終了", value: "discontinued" },
 ] as const;
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 function getOptionLabel(options: readonly { label: string; value: string }[], value: string) {
   return options.find((option) => option.value === value)?.label ?? value;
@@ -119,7 +120,15 @@ function getOptionLabel(options: readonly { label: string; value: string }[], va
 
 function parseUrlState() {
   const p = new URLSearchParams(window.location.search);
+  const pageParam = Number(p.get("page") || "1");
+  const pageSizeParam = Number(p.get("page_size") || String(DEFAULT_PAGE_SIZE));
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+  const pageSize = PAGE_SIZE_OPTIONS.includes(pageSizeParam as (typeof PAGE_SIZE_OPTIONS)[number])
+    ? pageSizeParam
+    : DEFAULT_PAGE_SIZE;
   return {
+    page,
+    pageSize,
     q: p.get("q") || "",
     tags: p.get("tags") ? p.get("tags")!.split(",").map(Number) : [],
     licenseClass: p.get("license") || "",
@@ -140,7 +149,8 @@ export default function CatalogPage() {
   const initial = parseUrlState();
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initial.page);
+  const [pageSize, setPageSize] = useState(initial.pageSize);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set(initial.tags));
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
@@ -158,14 +168,39 @@ export default function CatalogPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [showCompare, setShowCompare] = useState(false);
+  const [pendingScrollRestore, setPendingScrollRestore] = useState<number | null>(() => {
+    const saved = sessionStorage.getItem("moto-catalog-scroll");
+    if (!saved) return null;
+    const parsed = Number(saved);
+    return Number.isFinite(parsed) ? parsed : null;
+  });
 
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
   }, []);
 
+  useEffect(() => {
+    const saveScrollPosition = () => {
+      sessionStorage.setItem("moto-catalog-scroll", String(window.scrollY));
+    };
+    window.addEventListener("pagehide", saveScrollPosition);
+    return () => window.removeEventListener("pagehide", saveScrollPosition);
+  }, []);
+
+  useEffect(() => {
+    if (pendingScrollRestore == null || bikes.length === 0) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: pendingScrollRestore, behavior: "auto" });
+    });
+    sessionStorage.removeItem("moto-catalog-scroll");
+    setPendingScrollRestore(null);
+  }, [pendingScrollRestore, bikes.length]);
+
   // URL同期
   const syncUrl = useCallback(() => {
     const p = new URLSearchParams();
+    if (page > 1) p.set("page", String(page));
+    if (pageSize !== DEFAULT_PAGE_SIZE) p.set("page_size", String(pageSize));
     if (searchQuery) p.set("q", searchQuery);
     if (selectedTags.size > 0) p.set("tags", [...selectedTags].join(","));
     if (licenseClass) p.set("license", licenseClass);
@@ -184,7 +219,7 @@ export default function CatalogPage() {
     if (ranges.seat_height.max) p.set("shmax", ranges.seat_height.max);
     const qs = p.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-  }, [searchQuery, selectedTags, licenseClass, inspection, sortKey, statusFilter, ranges]);
+  }, [page, pageSize, searchQuery, selectedTags, licenseClass, inspection, sortKey, statusFilter, ranges]);
 
   useEffect(() => {
     syncUrl();
@@ -220,13 +255,20 @@ export default function CatalogPage() {
     }
     if (sortKey) params.set("sort", sortKey);
     if (statusFilter) params.set("status", statusFilter);
-    params.set("limit", String(PAGE_SIZE));
-    params.set("offset", String((page - 1) * PAGE_SIZE));
+    params.set("limit", String(pageSize));
+    params.set("offset", String((page - 1) * pageSize));
     fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`).then((res) => {
       setBikes(res.items);
       setTotal(res.total);
     });
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page]);
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page, pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, pageSize, total]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -324,6 +366,11 @@ export default function CatalogPage() {
     navigator.clipboard.writeText(window.location.href);
   };
 
+  const changePage = (nextPage: number) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const hasFilters =
     selectedTags.size > 0 ||
     searchQuery !== "" ||
@@ -339,7 +386,7 @@ export default function CatalogPage() {
   );
 
   const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
   const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
 
   if (searchQuery) {
@@ -486,6 +533,21 @@ export default function CatalogPage() {
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="range-field">
+          <label className="range-label">表示件数</label>
+          <select
+            value={String(pageSize)}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+            className="filter-select"
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>{size}件</option>
             ))}
           </select>
         </div>
@@ -829,10 +891,13 @@ export default function CatalogPage() {
 
           {totalPages > 1 && (
             <div className="pagination">
+              <span className="pagination-summary">
+                {page} / {totalPages}ページ
+              </span>
               <button
                 className="pagination-btn"
                 disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
+                onClick={() => changePage(page - 1)}
               >
                 前へ
               </button>
@@ -840,7 +905,7 @@ export default function CatalogPage() {
                 <button
                   key={p}
                   className={`pagination-btn ${p === page ? "pagination-btn-active" : ""}`}
-                  onClick={() => setPage(p)}
+                  onClick={() => changePage(p)}
                 >
                   {p}
                 </button>
@@ -848,7 +913,7 @@ export default function CatalogPage() {
               <button
                 className="pagination-btn"
                 disabled={page >= totalPages}
-                onClick={() => setPage(page + 1)}
+                onClick={() => changePage(page + 1)}
               >
                 次へ
               </button>
