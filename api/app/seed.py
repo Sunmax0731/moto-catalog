@@ -12,6 +12,9 @@ from app.models import Motorcycle, Tag
 Base.metadata.create_all(bind=engine)
 
 GENERATED_DATA_DIR = Path(__file__).with_name("data") / "bikebros"
+TAG_RENAMES = {
+    "L型": "L型（V型）",
+}
 
 TAGS = {
     "maker": [
@@ -38,7 +41,7 @@ TAGS = {
         "モノコックフレーム", "クレードルフレーム", "バックボーンフレーム",
         "ペリメターフレーム",
     ],
-    "engine_layout": ["直列", "V型", "水平対向", "L型", "並列"],
+    "engine_layout": ["直列", "V型", "水平対向", "L型（V型）", "並列"],
     "cylinders": ["単気筒", "二気筒", "三気筒", "四気筒", "六気筒"],
     "valves_per_cylinder": ["2バルブ", "3バルブ", "4バルブ", "5バルブ"],
     "fuel_system": ["キャブレター", "フューエルインジェクション"],
@@ -565,13 +568,13 @@ BIKES = [
         "name": "Monster", "maker": "Ducati",
         "displacement": 937, "year": 2024, "max_power": 111, "max_torque": 93, "seat_height": 820,
         "description": "ドゥカティの定番ネイキッド。L型2気筒とトレリスフレームの伝統的スタイル。",
-        "tags": ["Ducati", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール有", "ライディングモード有", "クイックシフター無", "フルデジタル", "通勤・街乗り", "ツーリング"],
+        "tags": ["Ducati", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型（V型）", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール有", "ライディングモード有", "クイックシフター無", "フルデジタル", "通勤・街乗り", "ツーリング"],
     },
     {
         "name": "Scrambler Icon", "maker": "Ducati",
         "displacement": 803, "year": 2015, "max_power": 73, "max_torque": 66, "seat_height": 798,
         "description": "空冷L型2気筒のスクランブラー。ジョイフルなライディングとポップなデザインで若い世代にも人気。",
-        "tags": ["Ducati", "ネオクラシック", "空冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型", "二気筒", "2バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール無", "ライディングモード無", "クイックシフター無", "ハイブリッド", "通勤・街乗り"],
+        "tags": ["Ducati", "ネオクラシック", "空冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型（V型）", "二気筒", "2バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "ABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール無", "ライディングモード無", "クイックシフター無", "ハイブリッド", "通勤・街乗り"],
     },
     {
         "name": "Multistrada V4", "maker": "Ducati",
@@ -589,7 +592,7 @@ BIKES = [
         "name": "Monster SP", "maker": "Ducati",
         "displacement": 937, "year": 2023, "max_power": 111, "max_torque": 93, "seat_height": 810,
         "description": "Monsterの上級仕様。Ohlinsサスとブレンボキャリパー装備のプレミアムネイキッド。",
-        "tags": ["Ducati", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール有", "ライディングモード有", "クイックシフター有", "フルデジタル", "通勤・街乗り", "サーキット"],
+        "tags": ["Ducati", "ネイキッド", "水冷", "倒立フォーク", "モノショック", "トレリスフレーム", "L型（V型）", "二気筒", "4バルブ", "フューエルインジェクション", "湿式クラッチ", "チェーン", "コーナリングABS", "セルスタート", "MT 6速", "アップライトポジション", "トラクションコントロール有", "ライディングモード有", "クイックシフター有", "フルデジタル", "通勤・街乗り", "サーキット"],
     },
     # ============================================================
     # Triumph (6車種)
@@ -828,7 +831,9 @@ def load_generated_bikes():
         return bikes
 
     for path in sorted(GENERATED_DATA_DIR.glob("*.json")):
-        bikes.extend(json.loads(path.read_text(encoding="utf-8")))
+        for bike in json.loads(path.read_text(encoding="utf-8")):
+            bike["tags"] = normalize_tags(bike.get("tags", []))
+            bikes.append(bike)
     return bikes
 
 
@@ -839,6 +844,18 @@ def bike_identity_key(bike_data):
         bike_data.get("model_code") or "",
         bike_data.get("year") or 0,
     )
+
+
+def normalize_tags(tag_names):
+    normalized = []
+    seen = set()
+    for tag_name in tag_names:
+        tag_name = TAG_RENAMES.get(tag_name, tag_name)
+        if tag_name in seen:
+            continue
+        seen.add(tag_name)
+        normalized.append(tag_name)
+    return normalized
 
 
 def seed():
@@ -852,6 +869,12 @@ def seed():
     required_tags = {**TAGS, "maker": maker_tags}
 
     tags = {tag.name: tag for tag in db.query(Tag).all()}
+    legacy_l_tag = tags.get("L型")
+    if legacy_l_tag is not None and "L型（V型）" not in tags:
+        legacy_l_tag.name = "L型（V型）"
+        tags["L型（V型）"] = legacy_l_tag
+        del tags["L型"]
+
     for category, names in required_tags.items():
         for name in names:
             if name in tags:
@@ -874,6 +897,7 @@ def seed():
     created = 0
     updated = 0
     for b in all_bikes:
+        b["tags"] = normalize_tags(b["tags"])
         bike_data = {k: v for k, v in b.items() if k != "tags"}
         identity = bike_identity_key(b)
         bike = existing_bikes.get(identity)
@@ -887,6 +911,10 @@ def seed():
                 setattr(bike, key, value)
             updated += 1
         bike.tags = [tags[tag_name] for tag_name in b["tags"] if tag_name in tags]
+
+    legacy_l_tag = db.query(Tag).filter(Tag.name == "L型").first()
+    if legacy_l_tag is not None and not legacy_l_tag.motorcycles:
+        db.delete(legacy_l_tag)
 
     db.commit()
     db.close()

@@ -204,7 +204,7 @@ def infer_engine_layout(specs: dict[str, str], cylinders: str | None) -> str | N
     if "水平対向" in value:
         return "水平対向"
     if "L型" in value:
-        return "L型"
+        return "L型（V型）"
     if "V型" in value:
         return "V型"
     if "並列" in value and cylinders in {"単気筒", "二気筒"}:

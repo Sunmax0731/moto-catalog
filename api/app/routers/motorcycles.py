@@ -6,6 +6,27 @@ from app.models import Motorcycle, Tag
 from app.schemas import MotorcycleOut, PaginatedMotorcycles, TagOut
 
 router = APIRouter(prefix="/api/motorcycles", tags=["motorcycles"])
+V_ENGINE_LAYOUT_TAGS = {"V型", "L型", "L型（V型）"}
+
+
+def expand_equivalent_tag_ids(db: Session, tag: Tag | None) -> list[int]:
+    if tag is None:
+        return []
+    if tag.category == "engine_layout" and tag.name == "V型":
+        return [
+            tag_id
+            for (tag_id,) in db.query(Tag.id)
+            .filter(Tag.category == "engine_layout", Tag.name.in_(V_ENGINE_LAYOUT_TAGS))
+            .all()
+        ]
+    if tag.category == "engine_layout" and tag.name == "L型":
+        return [
+            tag_id
+            for (tag_id,) in db.query(Tag.id)
+            .filter(Tag.category == "engine_layout", Tag.name.in_(("L型", "L型（V型）")))
+            .all()
+        ]
+    return [tag.id]
 
 
 @router.get("", response_model=PaginatedMotorcycles)
@@ -33,6 +54,10 @@ def list_motorcycles(
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
+    selected_tags = {
+        tag.id: tag
+        for tag in db.query(Tag).filter(Tag.id.in_(set(tag_ids + or_tag_ids))).all()
+    }
     if maker:
         query = query.filter(Motorcycle.maker == maker)
     if q:
@@ -40,13 +65,16 @@ def list_motorcycles(
     # AND タグ（単一選択モードのカテゴリ）: 各タグを個別にAND
     if tag_ids:
         for tid in tag_ids:
-            query = query.filter(Motorcycle.tags.any(Tag.id == tid))
+            equivalent_tag_ids = expand_equivalent_tag_ids(db, selected_tags.get(tid)) or [tid]
+            query = query.filter(
+                or_(*(Motorcycle.tags.any(Tag.id == equivalent_tid) for equivalent_tid in equivalent_tag_ids))
+            )
     # OR タグ（複数選択モードのカテゴリ）: カテゴリごとにグループ化してOR、カテゴリ間はAND
     if or_tag_ids:
-        or_tags = db.query(Tag).filter(Tag.id.in_(or_tag_ids)).all()
-        cats: dict[str, list[int]] = {}
+        or_tags = [selected_tags[tid] for tid in or_tag_ids if tid in selected_tags]
+        cats: dict[str, set[int]] = {}
         for t in or_tags:
-            cats.setdefault(t.category, []).append(t.id)
+            cats.setdefault(t.category, set()).update(expand_equivalent_tag_ids(db, t))
         for cat_tag_ids in cats.values():
             query = query.filter(
                 or_(*(Motorcycle.tags.any(Tag.id == tid) for tid in cat_tag_ids))
