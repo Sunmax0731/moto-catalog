@@ -506,38 +506,6 @@ body {
   transform: translateY(-2px);
 }
 
-.card-image {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: var(--colorNeutralBackground4);
-}
-
-.card-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.card-image-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacingS);
-  color: var(--colorNeutralForeground4);
-  background: var(--colorNeutralBackground4);
-}
-
-.placeholder-label {
-  font-size: var(--fontSizeBase200);
-  line-height: var(--lineHeightBase200);
-  font-weight: var(--fontWeightSemibold);
-  color: var(--colorNeutralForeground3);
-}
 
 .card-body {
   padding: var(--spacingL) var(--spacingXL) var(--spacingXL);
@@ -546,8 +514,24 @@ body {
 .card-header-row {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: var(--spacingS);
   margin-bottom: var(--spacingXS);
+}
+
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingS);
+  min-width: 0;
+  flex: 1;
+}
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingXS);
+  flex-shrink: 0;
 }
 
 .card-title {
@@ -846,26 +830,18 @@ body {
 
 /* Favorite Button */
 .favorite-btn {
-  position: absolute;
-  top: var(--spacingS);
-  right: var(--spacingS);
-  background: rgba(255, 255, 255, 0.85);
+  background: none;
   border: none;
-  border-radius: var(--borderRadiusCircular);
-  width: 32px;
-  height: 32px;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
   color: var(--colorNeutralForeground4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
+  padding: var(--spacingXXS);
+  transition: color 0.15s;
+  flex-shrink: 0;
 }
 
 .favorite-btn:hover {
-  background: rgba(255, 255, 255, 1);
   color: #e74c3c;
 }
 
@@ -875,14 +851,12 @@ body {
 
 /* Status Badge */
 .status-badge {
-  position: absolute;
-  top: var(--spacingS);
-  left: var(--spacingS);
   padding: var(--spacingXXS) var(--spacingS);
   border-radius: var(--borderRadiusSmall);
   font-size: var(--fontSizeBase100);
   font-weight: var(--fontWeightSemibold);
   line-height: var(--lineHeightBase100);
+  flex-shrink: 0;
 }
 
 .status-discontinued {
