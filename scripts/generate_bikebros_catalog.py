@@ -28,6 +28,7 @@ MAKER_CONFIG = {
     "Aprilia": {"id": 11, "slug": "aprilia"},
     "MV Agusta": {"id": 14, "slug": "mv_agusta"},
     "PIAGGIO": {"id": 16, "slug": "piaggio"},
+    "Vespa": {"id": 17, "slug": "vespa"},
     "KTM": {"id": 33, "slug": "ktm"},
     "Husqvarna": {"id": 38, "slug": "husqvarna"},
     "Indian": {"id": 100, "slug": "indian"},
