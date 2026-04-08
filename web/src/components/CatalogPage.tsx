@@ -109,6 +109,10 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 20;
 
+function getOptionLabel(options: readonly { label: string; value: string }[], value: string) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
 function parseUrlState() {
   const p = new URLSearchParams(window.location.search);
   return {
@@ -331,6 +335,101 @@ export default function CatalogPage() {
 
   const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
+
+  if (searchQuery) {
+    activeFilterChips.push({
+      key: "search",
+      label: `検索: ${searchQuery}`,
+      onRemove: () => {
+        setSearchQuery("");
+        setPage(1);
+      },
+    });
+  }
+
+  selectedTags.forEach((id) => {
+    const tag = tags.find((item) => item.id === id);
+    if (!tag) return;
+    activeFilterChips.push({
+      key: `tag-${id}`,
+      label: `タグ: ${tag.name}`,
+      onRemove: () => toggleTag(id),
+    });
+  });
+
+  if (licenseClass) {
+    activeFilterChips.push({
+      key: "license",
+      label: `免許: ${getOptionLabel(LICENSE_OPTIONS, licenseClass)}`,
+      onRemove: () => {
+        setLicenseClass("");
+        setPage(1);
+      },
+    });
+  }
+
+  if (inspection) {
+    activeFilterChips.push({
+      key: "inspection",
+      label: `車検: ${getOptionLabel(INSPECTION_OPTIONS, inspection)}`,
+      onRemove: () => {
+        setInspection("");
+        setPage(1);
+      },
+    });
+  }
+
+  if (sortKey) {
+    activeFilterChips.push({
+      key: "sort",
+      label: `並び替え: ${getOptionLabel(SORT_OPTIONS, sortKey)}`,
+      onRemove: () => {
+        setSortKey("");
+        setPage(1);
+      },
+    });
+  }
+
+  if (statusFilter) {
+    activeFilterChips.push({
+      key: "status",
+      label: `ステータス: ${getOptionLabel(STATUS_OPTIONS, statusFilter)}`,
+      onRemove: () => {
+        setStatusFilter("");
+        setPage(1);
+      },
+    });
+  }
+
+  if (showFavoritesOnly) {
+    activeFilterChips.push({
+      key: "favorites",
+      label: "お気に入りのみ",
+      onRemove: () => {
+        setShowFavoritesOnly(false);
+        setPage(1);
+      },
+    });
+  }
+
+  RANGE_FIELDS.forEach((field) => {
+    const range = ranges[field.key];
+    if (!range?.min && !range?.max) return;
+    const minLabel = range.min || "下限なし";
+    const maxLabel = range.max || "上限なし";
+    activeFilterChips.push({
+      key: `range-${field.key}`,
+      label: `${field.label}: ${minLabel}〜${maxLabel}`,
+      onRemove: () => {
+        setRanges((prev) => ({
+          ...prev,
+          [field.key]: { min: "", max: "" },
+        }));
+        setPage(1);
+      },
+    });
+  });
 
   const sidebarContent = (
     <>
@@ -554,6 +653,27 @@ export default function CatalogPage() {
         </aside>
 
         <main className="main-content">
+          {activeFilterChips.length > 0 && (
+            <section className="active-filters-panel" aria-label="現在の検索条件">
+              <div className="active-filters-header">
+                <h2 className="active-filters-title">現在の検索条件</h2>
+              </div>
+              <div className="active-filters-list">
+                {activeFilterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="active-filter-chip"
+                    onClick={chip.onRemove}
+                  >
+                    <span>{chip.label}</span>
+                    <span className="active-filter-chip-remove" aria-hidden="true">×</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           <div className="card-grid">
             {displayBikes.map((bike) => (
               <div key={bike.id} className="bike-card">
