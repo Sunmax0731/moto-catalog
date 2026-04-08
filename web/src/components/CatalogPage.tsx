@@ -654,7 +654,14 @@ export default function CatalogPage() {
                   })()}
                   <div className="card-tags">
                     {bike.tags.map((t) => (
-                      <span key={t.id} className="card-tag">{t.name}</span>
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`card-tag card-tag-button ${selectedTags.has(t.id) ? "card-tag-active" : ""}`}
+                        onClick={() => toggleTag(t.id)}
+                      >
+                        {t.name}
+                      </button>
                     ))}
                   </div>
                   <button
