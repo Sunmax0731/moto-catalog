@@ -67,6 +67,7 @@ function saveFavorites(ids: Set<number>) {
 
 const RANGE_FIELDS = [
   { key: "displacement", label: "排気量 (cc)", paramMin: "displacement_min", paramMax: "displacement_max" },
+  { key: "year", label: "年式", paramMin: "year_min", paramMax: "year_max" },
   { key: "power", label: "最高出力 (PS)", paramMin: "power_min", paramMax: "power_max" },
   { key: "torque", label: "最大トルク (N·m)", paramMin: "torque_min", paramMax: "torque_max" },
   { key: "seat_height", label: "シート高 (mm)", paramMin: "seat_height_min", paramMax: "seat_height_max" },
@@ -119,6 +120,7 @@ function parseUrlState() {
     statusFilter: p.get("status") || "",
     ranges: {
       displacement: { min: p.get("dmin") || "", max: p.get("dmax") || "" },
+      year: { min: p.get("ymin") || "", max: p.get("ymax") || "" },
       power: { min: p.get("pmin") || "", max: p.get("pmax") || "" },
       torque: { min: p.get("tmin") || "", max: p.get("tmax") || "" },
       seat_height: { min: p.get("shmin") || "", max: p.get("shmax") || "" },
@@ -163,6 +165,8 @@ export default function CatalogPage() {
     if (statusFilter) p.set("status", statusFilter);
     if (ranges.displacement.min) p.set("dmin", ranges.displacement.min);
     if (ranges.displacement.max) p.set("dmax", ranges.displacement.max);
+    if (ranges.year.min) p.set("ymin", ranges.year.min);
+    if (ranges.year.max) p.set("ymax", ranges.year.max);
     if (ranges.power.min) p.set("pmin", ranges.power.min);
     if (ranges.power.max) p.set("pmax", ranges.power.max);
     if (ranges.torque.min) p.set("tmin", ranges.torque.min);
@@ -299,6 +303,7 @@ export default function CatalogPage() {
     setShowFavoritesOnly(false);
     setRanges({
       displacement: { min: "", max: "" },
+      year: { min: "", max: "" },
       power: { min: "", max: "" },
       torque: { min: "", max: "" },
       seat_height: { min: "", max: "" },
