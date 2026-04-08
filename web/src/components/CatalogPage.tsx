@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchJson } from "../api/client";
 import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
@@ -185,8 +185,8 @@ function createEmptyRanges(): Record<RangeKey, RangeFilter> {
   };
 }
 
-function parseUrlState() {
-  const p = new URLSearchParams(window.location.search);
+function parseUrlState(search: string) {
+  const p = new URLSearchParams(search);
   const pageParam = Number(p.get("page") || "1");
   const pageSizeParam = Number(p.get("page_size") || String(DEFAULT_PAGE_SIZE));
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
@@ -213,9 +213,9 @@ function parseUrlState() {
 }
 
 export default function CatalogPage() {
-  const initial = parseUrlState();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+  const initial = useRef(parseUrlState(location.search)).current;
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(initial.page);
@@ -265,8 +265,7 @@ export default function CatalogPage() {
     setPendingScrollRestore(null);
   }, [pendingScrollRestore, bikes.length]);
 
-  // URL同期
-  const syncUrl = useCallback(() => {
+  useEffect(() => {
     const p = new URLSearchParams();
     if (page > 1) p.set("page", String(page));
     if (pageSize !== DEFAULT_PAGE_SIZE) p.set("page_size", String(pageSize));
@@ -286,13 +285,32 @@ export default function CatalogPage() {
     if (ranges.torque.max) p.set("tmax", ranges.torque.max);
     if (ranges.seat_height.min) p.set("shmin", ranges.seat_height.min);
     if (ranges.seat_height.max) p.set("shmax", ranges.seat_height.max);
-    const qs = p.toString();
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-  }, [page, pageSize, searchQuery, selectedTags, licenseClass, inspection, sortKey, statusFilter, ranges]);
+    const nextSearch = p.toString();
+    const currentSearch = location.search.startsWith("?") ? location.search.slice(1) : location.search;
 
-  useEffect(() => {
-    syncUrl();
-  }, [syncUrl]);
+    if (currentSearch === nextSearch) return;
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : "",
+      },
+      { replace: true }
+    );
+  }, [
+    page,
+    pageSize,
+    searchQuery,
+    selectedTags,
+    licenseClass,
+    inspection,
+    sortKey,
+    statusFilter,
+    ranges,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   useEffect(() => {
     const params = new URLSearchParams();
