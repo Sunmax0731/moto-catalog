@@ -252,7 +252,7 @@ body {
   border: var(--strokeWidthThin) solid transparent;
   border-radius: var(--borderRadiusMedium);
   cursor: pointer;
-  margin-bottom: var(--spacingL);
+  margin-bottom: 0;
   transition: background 0.15s;
 }
 
@@ -892,12 +892,14 @@ body {
 /* Filter Actions */
 .filter-actions {
   display: flex;
+  flex-direction: column;
   gap: var(--spacingS);
   margin-bottom: var(--spacingM);
 }
 
 .btn-copy-url {
-  flex: 1;
+  width: 100%;
+  flex: none;
   padding: var(--spacingXS) var(--spacingM);
   font-size: var(--fontSizeBase200);
   font-family: var(--fontFamilyBase);
