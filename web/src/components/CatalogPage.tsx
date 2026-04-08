@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { fetchJson } from "../api/client";
 import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
 
@@ -77,6 +78,8 @@ const RANGE_FIELDS = [
   { key: "seat_height", label: "シート高 (mm)", paramMin: "seat_height_min", paramMax: "seat_height_max" },
 ] as const;
 
+type RangeKey = (typeof RANGE_FIELDS)[number]["key"];
+
 const LICENSE_OPTIONS = [
   { label: "指定なし", value: "" },
   { label: "原付（〜50cc）", value: "gentsuki" },
@@ -114,8 +117,59 @@ const STATUS_OPTIONS = [
 const DEFAULT_PAGE_SIZE = 20;
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
+type PresetFilter = {
+  id: string;
+  label: string;
+  description: string;
+  licenseClass?: string;
+  sortKey?: string;
+  ranges: Partial<Record<RangeKey, RangeFilter>>;
+};
+
+const PRESET_FILTERS: PresetFilter[] = [
+  {
+    id: "beginner",
+    label: "初心者向け",
+    description: "400cc以下・シート高低めで探す",
+    licenseClass: "futsu",
+    sortKey: "seat_height_asc",
+    ranges: {
+      displacement: { min: "", max: "400" },
+      seat_height: { min: "", max: "800" },
+    },
+  },
+  {
+    id: "footreach",
+    label: "足つき重視",
+    description: "シート高が低いモデルを優先",
+    sortKey: "seat_height_asc",
+    ranges: {
+      seat_height: { min: "", max: "780" },
+    },
+  },
+  {
+    id: "lightweight",
+    label: "低排気量",
+    description: "250cc以下を中心に比較する",
+    sortKey: "displacement_asc",
+    ranges: {
+      displacement: { min: "", max: "250" },
+    },
+  },
+] as const;
+
 function getOptionLabel(options: readonly { label: string; value: string }[], value: string) {
   return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function createEmptyRanges(): Record<RangeKey, RangeFilter> {
+  return {
+    displacement: { min: "", max: "" },
+    year: { min: "", max: "" },
+    power: { min: "", max: "" },
+    torque: { min: "", max: "" },
+    seat_height: { min: "", max: "" },
+  };
 }
 
 function parseUrlState() {
@@ -147,6 +201,8 @@ function parseUrlState() {
 
 export default function CatalogPage() {
   const initial = parseUrlState();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(initial.page);
@@ -352,13 +408,7 @@ export default function CatalogPage() {
     setSortKey("");
     setStatusFilter("");
     setShowFavoritesOnly(false);
-    setRanges({
-      displacement: { min: "", max: "" },
-      year: { min: "", max: "" },
-      power: { min: "", max: "" },
-      torque: { min: "", max: "" },
-      seat_height: { min: "", max: "" },
-    });
+    setRanges(createEmptyRanges());
     setPage(1);
   };
 
@@ -369,6 +419,28 @@ export default function CatalogPage() {
   const changePage = (nextPage: number) => {
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const applyPreset = (preset: PresetFilter) => {
+    const nextRanges = createEmptyRanges();
+    (Object.keys(preset.ranges) as RangeKey[]).forEach((key) => {
+      const value = preset.ranges[key];
+      if (value) nextRanges[key] = value;
+    });
+    setSelectedTags(new Set());
+    setSingleSelectCats(new Set());
+    setSearchQuery("");
+    setLicenseClass(preset.licenseClass ?? "");
+    setInspection("");
+    setSortKey(preset.sortKey ?? "");
+    setStatusFilter("");
+    setShowFavoritesOnly(false);
+    setRanges(nextRanges);
+    setPage(1);
+  };
+
+  const openBikeDetails = (bikeId: number) => {
+    navigate(`/motorcycles/${bikeId}${location.search}`);
   };
 
   const hasFilters =
@@ -497,6 +569,23 @@ export default function CatalogPage() {
           onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
           className="search-input"
         />
+      </div>
+
+      <div className="filter-section">
+        <h3 className="filter-section-title">おすすめから探す</h3>
+        <div className="preset-list">
+          {PRESET_FILTERS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="preset-btn"
+              onClick={() => applyPreset(preset)}
+            >
+              <span className="preset-btn-title">{preset.label}</span>
+              <span className="preset-btn-description">{preset.description}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {hasFilters && (
@@ -753,7 +842,19 @@ export default function CatalogPage() {
 
           <div className="card-grid">
             {displayBikes.map((bike) => (
-              <div key={bike.id} className="bike-card">
+              <div
+                key={bike.id}
+                className="bike-card"
+                role="link"
+                tabIndex={0}
+                onClick={() => openBikeDetails(bike.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openBikeDetails(bike.id);
+                  }
+                }}
+              >
                 <div className="card-body">
                   <div className="card-header-row">
                     <div className="card-header-left">
@@ -763,6 +864,7 @@ export default function CatalogPage() {
                           href={getGoogleImageSearchUrl(bike)}
                           target="_blank"
                           rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           title={`${bike.name} のGoogle画像検索を開く`}
                         >
                           {bike.name}
@@ -868,7 +970,10 @@ export default function CatalogPage() {
                         key={t.id}
                         type="button"
                         className={`card-tag card-tag-button ${selectedTags.has(t.id) ? "card-tag-active" : ""}`}
-                        onClick={() => toggleTag(t.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleTag(t.id);
+                        }}
                       >
                         {t.name}
                       </button>
@@ -876,7 +981,10 @@ export default function CatalogPage() {
                   </div>
                   <button
                     className={`compare-btn ${compareIds.includes(bike.id) ? "compare-btn-active" : ""}`}
-                    onClick={() => toggleCompare(bike.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCompare(bike.id);
+                    }}
                     disabled={!compareIds.includes(bike.id) && compareIds.length >= 3}
                   >
                     {compareIds.includes(bike.id) ? "比較から外す" : "比較に追加"}
