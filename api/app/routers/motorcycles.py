@@ -16,6 +16,8 @@ def list_motorcycles(
     q: str | None = None,
     displacement_min: int | None = None,
     displacement_max: int | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
     power_min: float | None = None,
     power_max: float | None = None,
     torque_min: float | None = None,
@@ -54,6 +56,10 @@ def list_motorcycles(
         query = query.filter(Motorcycle.displacement >= displacement_min)
     if displacement_max is not None:
         query = query.filter(Motorcycle.displacement <= displacement_max)
+    if year_min is not None:
+        query = query.filter(Motorcycle.year >= year_min)
+    if year_max is not None:
+        query = query.filter(Motorcycle.year <= year_max)
     if power_min is not None:
         query = query.filter(Motorcycle.max_power >= power_min)
     if power_max is not None:
