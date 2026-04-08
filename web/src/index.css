@@ -655,6 +655,22 @@ body {
   padding: var(--spacingXXS) var(--spacingS);
 }
 
+.card-tag-button {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.card-tag-button:hover {
+  background: #d7ebfc;
+}
+
+.card-tag-active {
+  background: var(--colorBrandBackground);
+  color: #fff;
+  border-color: var(--colorBrandBackground);
+}
+
 /* Compare Button on Card */
 .compare-btn {
   margin-top: var(--spacingM);
