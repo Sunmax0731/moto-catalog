@@ -50,6 +50,10 @@ function getFootReach(heightCm: number, seatHeightMm: number): string {
   return "厳しい";
 }
 
+function getGoogleImageSearchUrl(bike: Pick<Motorcycle, "maker" | "name">) {
+  return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bike.maker} ${bike.name} バイク`)}`;
+}
+
 function loadFavorites(): Set<number> {
   try {
     const saved = localStorage.getItem("moto-catalog-favorites");
@@ -551,7 +555,17 @@ export default function CatalogPage() {
                 <div className="card-body">
                   <div className="card-header-row">
                     <div className="card-header-left">
-                      <h3 className="card-title">{bike.name}</h3>
+                      <h3 className="card-title">
+                        <a
+                          className="card-title-link"
+                          href={getGoogleImageSearchUrl(bike)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`${bike.name} のGoogle画像検索を開く`}
+                        >
+                          {bike.name}
+                        </a>
+                      </h3>
                       {bike.status === "discontinued" && (
                         <span className="status-badge status-discontinued">生産終了</span>
                       )}
