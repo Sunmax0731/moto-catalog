@@ -59,6 +59,19 @@ function getGoogleImageSearchUrl(bike: Pick<Motorcycle, "maker" | "name">) {
   return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bike.maker} ${bike.name} バイク`)}`;
 }
 
+function getUsedMarketAvailability(status: string | null, year: number | null) {
+  if (status !== "discontinued") {
+    return { label: "新車流通中心", tone: "market-current" };
+  }
+  if (year != null && year >= 2015) {
+    return { label: "中古流通 多め", tone: "market-high" };
+  }
+  if (year != null && year >= 2000) {
+    return { label: "中古流通 ふつう", tone: "market-medium" };
+  }
+  return { label: "中古流通 少なめ", tone: "market-low" };
+}
+
 function loadFavorites(): Set<number> {
   try {
     const saved = localStorage.getItem("moto-catalog-favorites");
@@ -890,6 +903,12 @@ export default function CatalogPage() {
                     {bike.model_code && <span className="card-model-code"> ({bike.model_code})</span>}
                   </div>
                   <div className="card-specs">
+                    <div className="spec-item">
+                      <span className="spec-label">流通目安</span>
+                      <span className={`spec-value market-availability ${getUsedMarketAvailability(bike.status, bike.year).tone}`}>
+                        {getUsedMarketAvailability(bike.status, bike.year).label}
+                      </span>
+                    </div>
                     {bike.max_power != null && (
                       <div className="spec-item">
                         <span className="spec-label">最高出力</span>

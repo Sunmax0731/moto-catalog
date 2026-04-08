@@ -1234,6 +1234,26 @@ body {
   color: var(--colorBrandForeground1);
 }
 
+.market-availability {
+  font-weight: var(--fontWeightBold);
+}
+
+.market-current {
+  color: #0e7a0d;
+}
+
+.market-high {
+  color: var(--colorBrandForeground1);
+}
+
+.market-medium {
+  color: #a06300;
+}
+
+.market-low {
+  color: var(--colorStatusDangerForeground1);
+}
+
 /* Filter Actions */
 .filter-actions {
   display: flex;
