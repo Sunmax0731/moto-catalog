@@ -38,6 +38,107 @@ const CATEGORY_ORDER = [
 
 const BIKE_SILHOUETTE_URL = `${import.meta.env.BASE_URL}bike-silhouette.svg`;
 const NO_DATA_TAG_LABEL = getNoDataTagLabel();
+const CARD_TAG_PRIORITY = ["type", "usage", "luggage", "riding_position", "drive", "engine_layout"] as const;
+
+type SelectionModeMeta = {
+  buttonLabel: string;
+  title: string;
+  description: string;
+};
+
+type CatalogCardMetric = {
+  label: string;
+  value: string;
+};
+
+type CatalogCardFact = {
+  label: string;
+  value: string;
+  valueClassName?: string;
+};
+
+function getTagSelectionModeMeta(isSingleSelect: boolean): SelectionModeMeta {
+  if (isSingleSelect) {
+    return {
+      buttonLabel: "1つ",
+      title: "1つに絞る",
+      description: "同じ項目の中では1つだけ選び、候補をはっきり絞ります。",
+    };
+  }
+
+  return {
+    buttonLabel: "複数",
+    title: "複数で広く見る",
+    description: "同じ項目の候補をまとめて見比べながら探せます。",
+  };
+}
+
+function getCardPrimaryMetrics(bike: Motorcycle): CatalogCardMetric[] {
+  const candidates: Array<CatalogCardMetric | null> = [
+    bike.displacement != null ? { label: "排気量", value: `${bike.displacement} cc` } : null,
+    bike.price != null ? { label: "価格", value: `${bike.price}万円` } : null,
+    bike.seat_height != null ? { label: "シート高", value: `${bike.seat_height} mm` } : null,
+    bike.wet_weight != null ? { label: "車重", value: `${bike.wet_weight} kg` } : null,
+    bike.max_power != null ? { label: "最高出力", value: `${bike.max_power} PS` } : null,
+  ];
+
+  return candidates.filter((metric): metric is CatalogCardMetric => metric != null).slice(0, 4);
+}
+
+function getCardSecondaryFacts(
+  bike: Motorcycle,
+  userHeight: string,
+  userWeight: string,
+): CatalogCardFact[] {
+  const availability = getUsedMarketAvailability(bike.status, bike.year);
+  const facts: Array<CatalogCardFact | null> = [
+    {
+      label: "流通",
+      value: availability.label,
+      valueClassName: `market-availability ${availability.tone}`,
+    },
+    bike.max_power != null ? { label: "最高出力", value: `${bike.max_power} PS` } : null,
+    bike.max_torque != null ? { label: "最大トルク", value: `${bike.max_torque} N·m` } : null,
+    bike.fuel_economy != null ? { label: "燃費", value: `${bike.fuel_economy} km/L` } : null,
+    bike.displacement != null
+      ? {
+          label: "高速",
+          value: bike.displacement > 125 ? "走行可" : "不可",
+          valueClassName: bike.displacement > 125 ? "spec-highway-ok" : "spec-highway-ng",
+        }
+      : null,
+    userHeight && bike.seat_height != null
+      ? {
+          label: "足つき",
+          value: getFootReach(Number(userHeight), bike.seat_height),
+          valueClassName: "spec-foot-reach",
+        }
+      : null,
+    userWeight && bike.max_power != null && bike.wet_weight != null
+      ? {
+          label: "PW比",
+          value: `${getPowerToWeight(bike.max_power, bike.wet_weight, Number(userWeight))} PS/kg`,
+        }
+      : null,
+  ];
+
+  return facts.filter((fact): fact is CatalogCardFact => fact != null).slice(0, 6);
+}
+
+function getPrioritizedCardTags(tags: Tag[]) {
+  return [...tags].sort((left, right) => {
+    const leftPriority = CARD_TAG_PRIORITY.indexOf(left.category as (typeof CARD_TAG_PRIORITY)[number]);
+    const rightPriority = CARD_TAG_PRIORITY.indexOf(right.category as (typeof CARD_TAG_PRIORITY)[number]);
+    const normalizedLeft = leftPriority === -1 ? CARD_TAG_PRIORITY.length : leftPriority;
+    const normalizedRight = rightPriority === -1 ? CARD_TAG_PRIORITY.length : rightPriority;
+
+    if (normalizedLeft !== normalizedRight) {
+      return normalizedLeft - normalizedRight;
+    }
+
+    return left.name.localeCompare(right.name, "ja");
+  });
+}
 
 function getRunningCostInfo(displacement: number | null, fuelEconomy: number | null) {
   if (displacement == null) return null;
@@ -226,6 +327,9 @@ export default function CatalogPage() {
   const [page, setPage] = useState(initialState.page);
   const [pageSize, setPageSize] = useState(initialState.pageSize);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [tagLoadError, setTagLoadError] = useState("");
+  const [tagReloadToken, setTagReloadToken] = useState(0);
   const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set(initialState.tags));
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState(initialState.q);
@@ -240,6 +344,9 @@ export default function CatalogPage() {
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initialState.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogReloadToken, setCatalogReloadToken] = useState(0);
   const [compareBikes, setCompareBikes] = useState<Motorcycle[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [helpCategory, setHelpCategory] = useState<string | null>(null);
@@ -255,8 +362,27 @@ export default function CatalogPage() {
   const hasRestoredScrollRef = useRef(false);
 
   useEffect(() => {
-    fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
-  }, []);
+    let cancelled = false;
+
+    fetchJson<Tag[]>("/motorcycles/tags/all")
+      .then((nextTags) => {
+        if (cancelled) return;
+        setTags(nextTags);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTags([]);
+        setTagLoadError("タグ情報の読み込みに失敗しました。時間をおいて再読み込みしてください。");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setTagsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tagReloadToken]);
 
   useEffect(() => {
     const saveScrollPosition = () => {
@@ -347,6 +473,7 @@ export default function CatalogPage() {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams();
     if (searchQuery) params.set("q", searchQuery);
     selectedTags.forEach((id) => {
@@ -378,19 +505,46 @@ export default function CatalogPage() {
     if (statusFilter) params.set("status", statusFilter);
     params.set("limit", String(pageSize));
     params.set("offset", String((page - 1) * pageSize));
-    fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`).then((res) => {
-      const totalPages = Math.max(1, Math.ceil(res.total / pageSize));
-      if (page > totalPages) {
+
+    fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`)
+      .then((res) => {
+        if (cancelled) return;
+        const totalPages = Math.max(1, Math.ceil(res.total / pageSize));
+        if (page > totalPages) {
+          setTotal(res.total);
+          setPage(totalPages);
+          return;
+        }
+        setBikes(res.items);
         setTotal(res.total);
-        setPage(totalPages);
-        return;
-      }
-      setBikes(res.items);
-      setTotal(res.total);
-    });
-  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page, pageSize]);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCatalogError("候補一覧の読み込みに失敗しました。通信状況を確認して再読み込みしてください。");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page, pageSize, catalogReloadToken]);
+
+  const beginCatalogRefresh = () => {
+    setCatalogLoading(true);
+    setCatalogError("");
+  };
+
+  const beginTagReload = () => {
+    setTagsLoading(true);
+    setTagLoadError("");
+    setTagReloadToken((prev) => prev + 1);
+  };
 
   const toggleTag = (id: number) => {
+    beginCatalogRefresh();
     const tag = tags.find((t) => t.id === id);
     setSelectedTags((prev) => {
       const next = new Set(prev);
@@ -410,6 +564,7 @@ export default function CatalogPage() {
   };
 
   const toggleSelectionMode = (cat: string) => {
+    beginCatalogRefresh();
     setSingleSelectCats((prev) => {
       const next = new Set(prev);
       if (next.has(cat)) {
@@ -431,6 +586,7 @@ export default function CatalogPage() {
   };
 
   const updateRange = (key: string, side: "min" | "max", value: string) => {
+    beginCatalogRefresh();
     setRanges((prev) => ({
       ...prev,
       [key]: { ...prev[key], [side]: value },
@@ -506,6 +662,7 @@ export default function CatalogPage() {
   };
 
   const clearAll = () => {
+    beginCatalogRefresh();
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
     setSearchQuery("");
@@ -523,11 +680,13 @@ export default function CatalogPage() {
   };
 
   const changePage = (nextPage: number) => {
+    beginCatalogRefresh();
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const applyPreset = (preset: PresetFilter) => {
+    beginCatalogRefresh();
     const nextRanges = createEmptyRanges();
     (Object.keys(preset.ranges) as RangeKey[]).forEach((key) => {
       const value = preset.ranges[key];
@@ -569,12 +728,13 @@ export default function CatalogPage() {
   const activeHelpSupportsNoData = helpCategory
     ? tags.some((tag) => tag.category === helpCategory && tag.name === NO_DATA_TAG_LABEL)
     : false;
-  const activeHelpMode = helpCategory && singleSelectCats.has(helpCategory) ? "AND" : "OR";
+  const activeHelpModeMeta = helpCategory ? getTagSelectionModeMeta(singleSelectCats.has(helpCategory)) : null;
 
   const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
   const totalPages = Math.ceil(total / pageSize);
   const paginationItems = totalPages > 1 ? getPaginationItems(page, totalPages) : [];
   const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
+  const activeFilterSummaryParts: string[] = [];
 
   const renderTagButtons = (tagItems: Tag[]) => (
     <>
@@ -591,10 +751,12 @@ export default function CatalogPage() {
   );
 
   if (searchQuery) {
+    activeFilterSummaryParts.push(`検索「${searchQuery}」`);
     activeFilterChips.push({
       key: "search",
       label: `検索: ${searchQuery}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setSearchQuery("");
         setPage(1);
       },
@@ -610,12 +772,17 @@ export default function CatalogPage() {
       onRemove: () => toggleTag(id),
     });
   });
+  if (selectedTags.size > 0) {
+    activeFilterSummaryParts.push(`タグ ${selectedTags.size}件`);
+  }
 
   if (licenseClass) {
+    activeFilterSummaryParts.push(`免許 ${getOptionLabel(LICENSE_OPTIONS, licenseClass)}`);
     activeFilterChips.push({
       key: "license",
       label: `免許: ${getOptionLabel(LICENSE_OPTIONS, licenseClass)}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setLicenseClass("");
         setPage(1);
       },
@@ -623,10 +790,12 @@ export default function CatalogPage() {
   }
 
   if (inspection) {
+    activeFilterSummaryParts.push(`車検 ${getOptionLabel(INSPECTION_OPTIONS, inspection)}`);
     activeFilterChips.push({
       key: "inspection",
       label: `車検: ${getOptionLabel(INSPECTION_OPTIONS, inspection)}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setInspection("");
         setPage(1);
       },
@@ -634,10 +803,12 @@ export default function CatalogPage() {
   }
 
   if (sortKey) {
+    activeFilterSummaryParts.push(`並び替え ${getOptionLabel(SORT_OPTIONS, sortKey)}`);
     activeFilterChips.push({
       key: "sort",
       label: `並び替え: ${getOptionLabel(SORT_OPTIONS, sortKey)}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setSortKey("");
         setPage(1);
       },
@@ -645,10 +816,12 @@ export default function CatalogPage() {
   }
 
   if (statusFilter) {
+    activeFilterSummaryParts.push(`ステータス ${getOptionLabel(STATUS_OPTIONS, statusFilter)}`);
     activeFilterChips.push({
       key: "status",
       label: `ステータス: ${getOptionLabel(STATUS_OPTIONS, statusFilter)}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setStatusFilter("");
         setPage(1);
       },
@@ -656,6 +829,7 @@ export default function CatalogPage() {
   }
 
   if (showFavoritesOnly) {
+    activeFilterSummaryParts.push("お気に入りのみ");
     activeFilterChips.push({
       key: "favorites",
       label: "お気に入りのみ",
@@ -666,15 +840,18 @@ export default function CatalogPage() {
     });
   }
 
+  let activeRangeCount = 0;
   RANGE_FIELDS.forEach((field) => {
     const range = ranges[field.key];
     if (!range?.min && !range?.max) return;
+    activeRangeCount += 1;
     const minLabel = range.min || "下限なし";
     const maxLabel = range.max || "上限なし";
     activeFilterChips.push({
       key: `range-${field.key}`,
       label: `${field.label}: ${minLabel}〜${maxLabel}`,
       onRemove: () => {
+        beginCatalogRefresh();
         setRanges((prev) => ({
           ...prev,
           [field.key]: { min: "", max: "" },
@@ -687,6 +864,12 @@ export default function CatalogPage() {
   const compareIds = new Set(compareBikes.map((bike) => bike.id));
   const compareReady = compareBikes.length >= 2;
   const resultCountLabel = showFavoritesOnly ? `${displayBikes.length}件のお気に入り候補` : `${total}件の候補`;
+  if (activeRangeCount > 0) {
+    activeFilterSummaryParts.push(`スペック ${activeRangeCount}項目`);
+  }
+  const headerFilterSummary = activeFilterSummaryParts.length > 0
+    ? activeFilterSummaryParts.join(" / ")
+    : "検索条件なし";
   const explorationTitle = hasFilters
     ? "条件を足し引きしながら候補を整理しています"
     : "まずは入口を決めて、気になる軸から深掘りできます";
@@ -717,6 +900,7 @@ export default function CatalogPage() {
       key: "recover-search",
       label: `検索「${searchQuery}」を外す`,
       onClick: () => {
+        beginCatalogRefresh();
         setSearchQuery("");
         setPage(1);
       },
@@ -739,6 +923,7 @@ export default function CatalogPage() {
       key: "recover-license",
       label: "免許条件を外す",
       onClick: () => {
+        beginCatalogRefresh();
         setLicenseClass("");
         setPage(1);
       },
@@ -750,6 +935,7 @@ export default function CatalogPage() {
       key: "recover-inspection",
       label: "車検条件を外す",
       onClick: () => {
+        beginCatalogRefresh();
         setInspection("");
         setPage(1);
       },
@@ -765,6 +951,7 @@ export default function CatalogPage() {
       key: `recover-range-${firstRangeField.key}`,
       label: `${firstRangeField.label} の条件を外す`,
       onClick: () => {
+        beginCatalogRefresh();
         setRanges((prev) => ({
           ...prev,
           [firstRangeField.key]: { min: "", max: "" },
@@ -779,6 +966,7 @@ export default function CatalogPage() {
       key: "recover-status",
       label: "ステータス条件を外す",
       onClick: () => {
+        beginCatalogRefresh();
         setStatusFilter("");
         setPage(1);
       },
@@ -791,6 +979,10 @@ export default function CatalogPage() {
     { key: "details", label: "詳細条件", description: "スペックとタグで深掘りする", sectionId: "exploration-details" },
     { key: "organize", label: "比較・保存", description: "候補を比較しながら絞り込む", sectionId: "exploration-organize" },
   ] as const;
+  const retryCatalogLoad = () => {
+    beginCatalogRefresh();
+    setCatalogReloadToken((prev) => prev + 1);
+  };
 
   const sidebarContent = (
     <>
@@ -813,7 +1005,11 @@ export default function CatalogPage() {
             type="text"
             placeholder="車名で検索..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              beginCatalogRefresh();
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
             className="search-input"
           />
         </div>
@@ -852,7 +1048,11 @@ export default function CatalogPage() {
             <label className="range-label">免許区分</label>
             <select
               value={licenseClass}
-              onChange={(e) => { setLicenseClass(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                beginCatalogRefresh();
+                setLicenseClass(e.target.value);
+                setPage(1);
+              }}
               className="filter-select"
             >
               {LICENSE_OPTIONS.map((opt) => (
@@ -864,7 +1064,11 @@ export default function CatalogPage() {
             <label className="range-label">車検有無</label>
             <select
               value={inspection}
-              onChange={(e) => { setInspection(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                beginCatalogRefresh();
+                setInspection(e.target.value);
+                setPage(1);
+              }}
               className="filter-select"
             >
               {INSPECTION_OPTIONS.map((opt) => (
@@ -912,6 +1116,7 @@ export default function CatalogPage() {
 
         <div className="filter-section">
           <h3 className="filter-section-title">スペックで絞り込み</h3>
+          <p className="filter-section-copy">最小または最大だけでも指定できます。欲しい条件帯が決まっているときに使います。</p>
           {RANGE_FIELDS.map((field) => (
             <div key={field.key} className="range-field">
               <label className="range-label">{field.label}</label>
@@ -938,10 +1143,21 @@ export default function CatalogPage() {
 
         <div className="filter-section">
           <h3 className="filter-section-title">タグで絞り込み</h3>
-          {sortedCategories.map((cat) => {
+          <p className="filter-section-copy">各項目は「複数」で広く、「1つ」で代表候補に絞れます。意味が分からない項目は「?」で確認できます。</p>
+          {tagLoadError ? (
+            <div className="filter-state-note filter-state-note-error">
+              <p>{tagLoadError}</p>
+              <button type="button" className="btn-copy-url filter-state-action" onClick={beginTagReload}>
+                タグを再読み込み
+              </button>
+            </div>
+          ) : tagsLoading ? (
+            <p className="filter-state-note">タグ情報を読み込み中です。</p>
+          ) : sortedCategories.map((cat) => {
             const isCollapsed = collapsedCats.has(cat);
             const catTags = tags.filter((t) => t.category === cat);
             const selectedCount = catTags.filter((t) => selectedTags.has(t.id)).length;
+            const selectionModeMeta = getTagSelectionModeMeta(singleSelectCats.has(cat));
             return (
               <div key={cat} className="tag-category">
                 <div className="tag-category-header">
@@ -984,29 +1200,32 @@ export default function CatalogPage() {
                         toggleSelectionMode(cat);
                       }}
                       className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
-                      title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
+                      title={selectionModeMeta.title}
                     >
-                      {singleSelectCats.has(cat) ? "AND" : "OR"}
+                      {selectionModeMeta.buttonLabel}
                     </button>
                   </div>
                 </div>
                 {!isCollapsed && (
-                  cat === "maker" ? (
-                    <div className="tag-list maker-tag-list">
-                      {groupMakerTags(catTags).map((group) => (
-                        <div key={group.key} className="maker-tag-group">
-                          <div className="maker-tag-group-title">{group.label}</div>
-                          <div className="maker-tag-buttons">
-                            {renderTagButtons(group.tags)}
+                  <>
+                    <p className="tag-category-mode-note">{selectionModeMeta.description}</p>
+                    {cat === "maker" ? (
+                      <div className="tag-list maker-tag-list">
+                        {groupMakerTags(catTags).map((group) => (
+                          <div key={group.key} className="maker-tag-group">
+                            <div className="maker-tag-group-title">{group.label}</div>
+                            <div className="maker-tag-buttons">
+                              {renderTagButtons(group.tags)}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="tag-list">
-                      {renderTagButtons(catTags)}
-                    </div>
-                  )
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="tag-list">
+                        {renderTagButtons(catTags)}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );
@@ -1083,11 +1302,16 @@ export default function CatalogPage() {
 
         <div className="filter-section">
           <h3 className="filter-section-title">表示設定</h3>
+          <p className="filter-section-copy">比較しやすい並び順や、見やすい表示件数に調整します。</p>
           <div className="range-field">
             <label className="range-label">並び替え</label>
             <select
               value={sortKey}
-              onChange={(e) => { setSortKey(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                beginCatalogRefresh();
+                setSortKey(e.target.value);
+                setPage(1);
+              }}
               className="filter-select"
             >
               {SORT_OPTIONS.map((opt) => (
@@ -1099,7 +1323,11 @@ export default function CatalogPage() {
             <label className="range-label">ステータス</label>
             <select
               value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                beginCatalogRefresh();
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               className="filter-select"
             >
               {STATUS_OPTIONS.map((opt) => (
@@ -1112,6 +1340,7 @@ export default function CatalogPage() {
             <select
               value={String(pageSize)}
               onChange={(e) => {
+                beginCatalogRefresh();
                 setPageSize(Number(e.target.value));
                 setPage(1);
               }}
@@ -1152,23 +1381,26 @@ export default function CatalogPage() {
 
           <section className="header-active-filters" aria-label="現在の検索条件">
             <h2 className="header-active-filters-title">現在の検索条件</h2>
-            {activeFilterChips.length > 0 ? (
-              <div className="active-filters-list header-active-filters-list">
-                {activeFilterChips.map((chip) => (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    className="active-filter-chip"
-                    onClick={chip.onRemove}
-                  >
-                    <span>{chip.label}</span>
-                    <span className="active-filter-chip-remove" aria-hidden="true">×</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="header-active-filters-empty">検索条件なし</p>
-            )}
+            <div className="header-active-filters-content">
+              <p className="header-active-filters-meta">{headerFilterSummary}</p>
+              {activeFilterChips.length > 0 ? (
+                <div className="active-filters-list header-active-filters-list">
+                  {activeFilterChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      className="active-filter-chip"
+                      onClick={chip.onRemove}
+                    >
+                      <span>{chip.label}</span>
+                      <span className="active-filter-chip-remove" aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="header-active-filters-empty">検索条件なし</p>
+              )}
+            </div>
           </section>
         </div>
       </header>
@@ -1180,6 +1412,23 @@ export default function CatalogPage() {
 
         <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
           {sidebarContent}
+          <div className="mobile-sidebar-footer" aria-live="polite">
+            <div className="mobile-sidebar-footer-copy">
+              <strong>{catalogLoading ? "条件を反映中です" : resultCountLabel}</strong>
+              <span>
+                {catalogError
+                  ? "更新に失敗しました。閉じてから再読み込みできます。"
+                  : "条件は自動で一覧へ反映されます。"}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="compare-tray-open mobile-sidebar-close"
+              onClick={() => setSidebarOpen(false)}
+            >
+              結果を見る
+            </button>
+          </div>
         </aside>
 
         <main className="main-content">
@@ -1237,165 +1486,193 @@ export default function CatalogPage() {
             </article>
           </section>
 
-          {displayBikes.length > 0 ? (
+          <section className="catalog-status-summary" aria-live="polite">
+            <p className="catalog-status-summary-title">条件の読み取り状況</p>
+            <p className="catalog-status-summary-copy">{headerFilterSummary}</p>
+          </section>
+
+          {catalogError && bikes.length > 0 && (
+            <section className="catalog-status-banner catalog-status-banner-error" aria-live="polite">
+              <div>
+                <p className="catalog-status-banner-title">一覧の更新に失敗したため、ひとつ前の結果を表示しています。</p>
+                <p className="catalog-status-banner-copy">{catalogError}</p>
+              </div>
+              <button type="button" className="btn-copy-url catalog-status-banner-action" onClick={retryCatalogLoad}>
+                再読み込み
+              </button>
+            </section>
+          )}
+
+          {catalogLoading && bikes.length > 0 && !catalogError && (
+            <section className="catalog-status-banner" aria-live="polite">
+              <div>
+                <p className="catalog-status-banner-title">条件を反映中です。</p>
+                <p className="catalog-status-banner-copy">一覧を見たまま、最新の条件に合わせて候補を更新しています。</p>
+              </div>
+            </section>
+          )}
+
+          {catalogLoading && bikes.length === 0 ? (
+            <section className="empty-state-panel">
+              <p className="empty-state-kicker">一覧を準備しています</p>
+              <h2 className="empty-state-title">候補一覧を読み込み中です</h2>
+              <p className="empty-state-copy">メーカーやタグを選べる状態まで読み込みます。数秒お待ちください。</p>
+            </section>
+          ) : catalogError && bikes.length === 0 ? (
+            <section className="empty-state-panel">
+              <p className="empty-state-kicker">一覧を表示できません</p>
+              <h2 className="empty-state-title">候補一覧の取得に失敗しました</h2>
+              <p className="empty-state-copy">{catalogError}</p>
+              <div className="empty-state-actions">
+                <button type="button" className="btn-copy-url" onClick={retryCatalogLoad}>
+                  再読み込み
+                </button>
+                {hasFilters && (
+                  <button type="button" className="btn-clear empty-state-clear" onClick={clearAll}>
+                    条件をすべて外す
+                  </button>
+                )}
+              </div>
+            </section>
+          ) : displayBikes.length > 0 ? (
             <div className="card-grid">
-              {displayBikes.map((bike) => (
-                <div
-                  key={bike.id}
-                  className="bike-card"
-                  role="link"
-                  tabIndex={0}
-                  onClick={() => openBikeDetails(bike.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openBikeDetails(bike.id);
-                    }
-                  }}
-                >
-                  <div className="card-body">
-                  <div className="card-header-row">
-                    <div className="card-header-left">
-                      <h3 className="card-title">
+              {displayBikes.map((bike) => {
+                const primaryMetrics = getCardPrimaryMetrics(bike);
+                const secondaryFacts = getCardSecondaryFacts(bike, userHeight, userWeight);
+                const prioritizedTags = getPrioritizedCardTags(bike.tags);
+                const visibleTags = prioritizedTags.slice(0, 5);
+                const hiddenTagCount = Math.max(0, prioritizedTags.length - visibleTags.length);
+                const runningCost = getRunningCostInfo(bike.displacement, bike.fuel_economy);
+
+                return (
+                  <div
+                    key={bike.id}
+                    className="bike-card"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => openBikeDetails(bike.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openBikeDetails(bike.id);
+                      }
+                    }}
+                  >
+                    <div className="card-body">
+                      <div className="card-header-row">
+                        <div className="card-header-left">
+                          <div className="card-title-block">
+                            <div className="card-title-row">
+                              <h3 className="card-title">{bike.name}</h3>
+                              {bike.status === "discontinued" && (
+                                <span className="status-badge status-discontinued">生産終了</span>
+                              )}
+                            </div>
+                            <div className="card-maker">
+                              {bike.maker}{bike.displacement != null ? ` / ${bike.displacement}cc` : ""}
+                              {bike.model_code && <span className="card-model-code"> ({bike.model_code})</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="card-header-right">
+                          {bike.year && <span className="card-year">{bike.year}年</span>}
+                          <button
+                            className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(bike.id);
+                            }}
+                            aria-label={favorites.has(bike.id) ? "お気に入りから外す" : "お気に入りに追加"}
+                            aria-pressed={favorites.has(bike.id)}
+                          >
+                            {favorites.has(bike.id) ? "♥" : "♡"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {bike.description && (
+                        <p className="card-description">{bike.description}</p>
+                      )}
+
+                      {primaryMetrics.length > 0 && (
+                        <div className="card-metric-grid">
+                          {primaryMetrics.map((metric) => (
+                            <div key={metric.label} className="card-metric">
+                              <span className="card-metric-label">{metric.label}</span>
+                              <strong className="card-metric-value">{metric.value}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {secondaryFacts.length > 0 && (
+                        <dl className="card-fact-list">
+                          {secondaryFacts.map((fact) => (
+                            <div key={fact.label} className="card-fact-item">
+                              <dt>{fact.label}</dt>
+                              <dd className={fact.valueClassName}>{fact.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+
+                      {runningCost && (
+                        <div className="card-running-cost">
+                          <span className="running-cost-label">維持費目安</span>
+                          <span>車検: {runningCost.inspectionCost}</span>
+                          <span>保険区分: {runningCost.insuranceClass}</span>
+                          {runningCost.fuelEconomy && <span>燃費: {runningCost.fuelEconomy} km/L</span>}
+                        </div>
+                      )}
+
+                      <div className="card-tag-section">
+                        <div className="card-tag-heading-row">
+                          <strong className="card-tag-heading">特徴タグ</strong>
+                          <span className="card-tag-hint">気になる特徴はそのまま絞り込みできます</span>
+                        </div>
+                        <div className="card-tags">
+                          {visibleTags.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              className={`card-tag card-tag-button ${selectedTags.has(tag.id) ? "card-tag-active" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTag(tag.id);
+                              }}
+                            >
+                              {tag.name}
+                            </button>
+                          ))}
+                          {hiddenTagCount > 0 && <span className="card-tag-more">+{hiddenTagCount}件</span>}
+                        </div>
+                      </div>
+
+                      <div className="card-actions">
+                        <button
+                          className={`compare-btn ${compareIds.has(bike.id) ? "compare-btn-active" : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCompare(bike);
+                          }}
+                          disabled={!compareIds.has(bike.id) && compareBikes.length >= 3}
+                        >
+                          {compareIds.has(bike.id) ? "比較から外す" : "比較に追加"}
+                        </button>
                         <a
-                          className="card-title-link"
+                          className="card-link-btn"
                           href={getGoogleImageSearchUrl(bike)}
                           target="_blank"
                           rel="noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          title={`${bike.name} のGoogle画像検索を開く`}
                         >
-                          {bike.name}
+                          画像を見る
                         </a>
-                      </h3>
-                      {bike.status === "discontinued" && (
-                        <span className="status-badge status-discontinued">生産終了</span>
-                      )}
-                    </div>
-                    <div className="card-header-right">
-                      {bike.year && <span className="card-year">{bike.year}年</span>}
-                      <button
-                        className={`favorite-btn ${favorites.has(bike.id) ? "favorite-active" : ""}`}
-                        onClick={(e) => { e.stopPropagation(); toggleFavorite(bike.id); }}
-                        aria-label="お気に入り"
-                      >
-                        {favorites.has(bike.id) ? "♥" : "♡"}
-                      </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="card-maker">
-                    {bike.maker}{bike.displacement != null ? ` / ${bike.displacement}cc` : ""}
-                    {bike.model_code && <span className="card-model-code"> ({bike.model_code})</span>}
-                  </div>
-                  <div className="card-specs">
-                    <div className="spec-item">
-                      <span className="spec-label">流通目安</span>
-                      <span className={`spec-value market-availability ${getUsedMarketAvailability(bike.status, bike.year).tone}`}>
-                        {getUsedMarketAvailability(bike.status, bike.year).label}
-                      </span>
-                    </div>
-                    {bike.max_power != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">最高出力</span>
-                        <span className="spec-value">{bike.max_power} PS</span>
-                      </div>
-                    )}
-                    {bike.max_torque != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">最大トルク</span>
-                        <span className="spec-value">{bike.max_torque} N·m</span>
-                      </div>
-                    )}
-                    {bike.seat_height != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">シート高</span>
-                        <span className="spec-value">{bike.seat_height} mm</span>
-                      </div>
-                    )}
-                    {bike.displacement != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">排気量</span>
-                        <span className="spec-value">{bike.displacement} cc</span>
-                      </div>
-                    )}
-                    {bike.wet_weight != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">車重</span>
-                        <span className="spec-value">{bike.wet_weight} kg</span>
-                      </div>
-                    )}
-                    {bike.price != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">参考価格</span>
-                        <span className="spec-value">{bike.price}万円</span>
-                      </div>
-                    )}
-                    {bike.displacement != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">高速道路</span>
-                        <span className={`spec-value ${bike.displacement > 125 ? "spec-highway-ok" : "spec-highway-ng"}`}>
-                          {bike.displacement > 125 ? "走行可" : "不可"}
-                        </span>
-                      </div>
-                    )}
-                    {userHeight && bike.seat_height != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">足つき目安</span>
-                        <span className="spec-value spec-foot-reach">{getFootReach(Number(userHeight), bike.seat_height)}</span>
-                      </div>
-                    )}
-                    {userWeight && bike.max_power != null && bike.wet_weight != null && (
-                      <div className="spec-item">
-                        <span className="spec-label">PW比(人込み)</span>
-                        <span className="spec-value">
-                          {getPowerToWeight(bike.max_power, bike.wet_weight, Number(userWeight))} PS/kg
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  {bike.description && (
-                    <p className="card-description">{bike.description}</p>
-                  )}
-                  {(() => {
-                    const cost = getRunningCostInfo(bike.displacement, bike.fuel_economy);
-                    if (!cost) return null;
-                    return (
-                      <div className="card-running-cost">
-                        <span className="running-cost-label">維持費目安</span>
-                        <span>車検: {cost.inspectionCost}</span>
-                        <span>保険区分: {cost.insuranceClass}</span>
-                        {cost.fuelEconomy && <span>燃費: {cost.fuelEconomy} km/L</span>}
-                      </div>
-                    );
-                  })()}
-                  <div className="card-tags">
-                    {bike.tags.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={`card-tag card-tag-button ${selectedTags.has(t.id) ? "card-tag-active" : ""}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleTag(t.id);
-                        }}
-                      >
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    className={`compare-btn ${compareIds.has(bike.id) ? "compare-btn-active" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleCompare(bike);
-                    }}
-                    disabled={!compareIds.has(bike.id) && compareBikes.length >= 3}
-                  >
-                    {compareIds.has(bike.id) ? "比較から外す" : "比較に追加"}
-                  </button>
-                </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <section className="empty-state-panel">
@@ -1525,9 +1802,11 @@ export default function CatalogPage() {
                 <section className="help-modal-section">
                   <h3>絞り込みの読み方</h3>
                   <p>{activeHelp.stateGuide}</p>
-                  <p className="help-modal-mode-note">
-                    現在の一致方式は <strong>{activeHelpMode}</strong> です。OR はいずれか一致、AND は同じ項目内の条件を重ねます。
-                  </p>
+                  {activeHelpModeMeta && (
+                    <p className="help-modal-mode-note">
+                      現在の選び方は <strong>{activeHelpModeMeta.title}</strong> です。{activeHelpModeMeta.description}
+                    </p>
+                  )}
                 </section>
 
                 {activeHelpTagOptions.length > 0 && (

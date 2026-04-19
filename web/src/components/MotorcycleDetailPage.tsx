@@ -118,6 +118,141 @@ function getSearchContextLabels(search: string, tags: Tag[]) {
   return labels;
 }
 
+type DetailLearningCard = {
+  title: string;
+  description: string;
+  note: string;
+};
+
+type DetailGuideCard = {
+  title: string;
+  description: string;
+  currentBikeNote: string;
+};
+
+function getDetailLearningCards(bike: Motorcycle): DetailLearningCard[] {
+  const cards: DetailLearningCard[] = [];
+
+  if (bike.displacement != null) {
+    if (bike.displacement === 0) {
+      cards.push({
+        title: "電気バイクとして見る",
+        description: "0cc はモーター駆動です。発進の力強さ、静かさ、航続や充電手段を確認すると性格がつかみやすくなります。",
+        note: "この車両は 0cc なので、エンジン排気量ではなく電動ならではの扱いやすさを見ます。",
+      });
+    } else if (bike.displacement <= 125) {
+      cards.push({
+        title: "日常用途の軸で見る",
+        description: "小排気量は街乗りや近距離移動での扱いやすさ、維持しやすさ、軽快さが見どころになります。",
+        note: `この車両は ${bike.displacement}cc なので、通勤や街乗りとの相性をまず確認しやすい帯です。`,
+      });
+    } else if (bike.displacement <= 400) {
+      cards.push({
+        title: "万能性のバランスを見る",
+        description: "中排気量は街乗りとツーリングの両立がしやすい帯です。車重と足つきのバランスを見ると使い方が見えます。",
+        note: `この車両は ${bike.displacement}cc なので、高速道路も含めた使い方との相性を見比べやすい帯です。`,
+      });
+    } else {
+      cards.push({
+        title: "余裕のある走りを見る",
+        description: "大排気量は巡航の余裕、積載や長距離適性、取り回しとのバランスを見ると違いが分かります。",
+        note: `この車両は ${bike.displacement}cc なので、余裕のある加速と取り回しのバランスが重要です。`,
+      });
+    }
+  }
+
+  if (bike.max_power != null && bike.wet_weight != null) {
+    const powerWeight = bike.max_power / bike.wet_weight;
+    const character = powerWeight >= 0.55
+      ? "加速感を楽しみやすいパワー寄り"
+      : powerWeight >= 0.35
+        ? "扱いやすさと余裕のバランス型"
+        : "穏やかでコントロールしやすい性格";
+    cards.push({
+      title: "走りのキャラクターを見る",
+      description: "最高出力だけでなく、車重と合わせて見ると加速感や扱いやすさの印象が掴みやすくなります。",
+      note: `最高出力 ${bike.max_power} PS / 車重 ${bike.wet_weight} kg で、${character}です。`,
+    });
+  }
+
+  const featureTags = bike.tags
+    .filter((tag) => ["drive", "clutch", "riding_mode", "quickshifter", "abs", "meter_type", "start"].includes(tag.category))
+    .slice(0, 3);
+  if (featureTags.length > 0) {
+    cards.push({
+      title: "機構と装備を見る",
+      description: "制御や操作感に関わるタグは、数値だけでは見えない個性を知る入口になります。",
+      note: `この車両では ${featureTags.map((tag) => tag.name).join(" / ")} が注目ポイントです。`,
+    });
+  } else if (bike.seat_height != null || bike.wet_weight != null) {
+    const seatNote = bike.seat_height != null ? `シート高 ${bike.seat_height} mm` : "シート高データなし";
+    const weightNote = bike.wet_weight != null ? `車重 ${bike.wet_weight} kg` : "車重データなし";
+    cards.push({
+      title: "取り回しの感覚を見る",
+      description: "足つきと押し引きのしやすさは、普段の使いやすさに直結します。シート高と車重を一緒に確認します。",
+      note: `${seatNote} / ${weightNote} を見て、停車時と押し引きの負担をイメージできます。`,
+    });
+  }
+
+  return cards.slice(0, 3);
+}
+
+function getDetailGuideCards(bike: Motorcycle): DetailGuideCard[] {
+  const availability = getUsedMarketAvailability(bike.status, bike.year);
+  const canUseHighway = bike.displacement != null && bike.displacement > 125;
+  const needsInspection = bike.displacement != null && bike.displacement > 250;
+
+  return [
+    {
+      title: "排気量で使い方を見る",
+      description: "排気量は免許区分、高速道路の可否、使いやすいシーンの目安になります。",
+      currentBikeNote: `この車両は ${formatValue(bike.displacement, "cc")} / 高速道路 ${canUseHighway ? "走行可" : "不可"} / 車検 ${needsInspection ? "あり" : "なし"} です。`,
+    },
+    {
+      title: "出力とトルクで走り方を見る",
+      description: "最高出力は伸びや最高速寄りの印象、最大トルクは発進や中速の力強さの目安として見ます。",
+      currentBikeNote: `この車両は 最高出力 ${formatValue(bike.max_power, " PS")} / 最大トルク ${formatValue(bike.max_torque, " N·m")} です。`,
+    },
+    {
+      title: "シート高と車重で扱いやすさを見る",
+      description: "シート高は足つき、車重は押し引きや低速での安心感に関わります。両方で見るのが基本です。",
+      currentBikeNote: `この車両は シート高 ${formatValue(bike.seat_height, " mm")} / 車重 ${formatValue(bike.wet_weight, " kg")} です。`,
+    },
+    {
+      title: "年式と流通で買いやすさを見る",
+      description: "年式や流通量は、今探しやすいか、価格帯が安定しているかの目安になります。",
+      currentBikeNote: `この車両は ${bike.year != null ? `${bike.year}年式` : "年式不明"} / ${availability.label} / 燃費 ${formatValue(bike.fuel_economy, " km/L")} です。`,
+    },
+  ];
+}
+
+function getSimilarBikeReason(base: Motorcycle, candidate: Motorcycle, sharedTags: Motorcycle["tags"]) {
+  const reasons: string[] = [];
+
+  if (sharedTags.length > 0) {
+    reasons.push(`共通タグ: ${sharedTags.slice(0, 2).map((tag) => tag.name).join(" / ")}`);
+  }
+  if (base.maker === candidate.maker) {
+    reasons.push("同じメーカー");
+  }
+  if (
+    base.displacement != null &&
+    candidate.displacement != null &&
+    Math.abs(base.displacement - candidate.displacement) <= 150
+  ) {
+    reasons.push("排気量帯が近い");
+  }
+  if (
+    base.seat_height != null &&
+    candidate.seat_height != null &&
+    Math.abs(base.seat_height - candidate.seat_height) <= 30
+  ) {
+    reasons.push("足つき感が近い");
+  }
+
+  return reasons.slice(0, 2).join("・") || "タグとスペックが近い候補です。";
+}
+
 export default function MotorcycleDetailPage() {
   const { motorcycleId } = useParams();
   const location = useLocation();
@@ -175,8 +310,14 @@ export default function MotorcycleDetailPage() {
     return (
       <div className="detail-page">
         <div className="detail-shell">
-          <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
-          <p className="detail-message">車両IDが指定されていません。</p>
+          <section className="detail-state-card">
+            <p className="detail-context-kicker">詳細を開けません</p>
+            <h1 className="detail-state-title">車両IDが指定されていません</h1>
+            <p className="detail-message">一覧へ戻って、表示したい車両を選び直してください。</p>
+            <div className="detail-state-actions">
+              <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
+            </div>
+          </section>
         </div>
       </div>
     );
@@ -188,7 +329,11 @@ export default function MotorcycleDetailPage() {
     return (
       <div className="detail-page">
         <div className="detail-shell">
-          <p className="detail-message">車両詳細を読み込み中です...</p>
+          <section className="detail-state-card">
+            <p className="detail-context-kicker">詳細を準備中</p>
+            <h1 className="detail-state-title">車両詳細を読み込み中です</h1>
+            <p className="detail-message">スペック、タグ、似ている候補をまとめて準備しています。</p>
+          </section>
         </div>
       </div>
     );
@@ -198,14 +343,22 @@ export default function MotorcycleDetailPage() {
     return (
       <div className="detail-page">
         <div className="detail-shell">
-          <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
-          <p className="detail-message">{error || "車両が見つかりません。"}</p>
+          <section className="detail-state-card">
+            <p className="detail-context-kicker">詳細を表示できません</p>
+            <h1 className="detail-state-title">車両詳細の取得に失敗しました</h1>
+            <p className="detail-message">{error || "車両が見つかりません。"}</p>
+            <div className="detail-state-actions">
+              <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
+            </div>
+          </section>
         </div>
       </div>
     );
   }
 
   const availability = getUsedMarketAvailability(bike.status, bike.year);
+  const learningCards = getDetailLearningCards(bike);
+  const guideCards = getDetailGuideCards(bike);
 
   return (
     <div className="detail-page">
@@ -296,12 +449,44 @@ export default function MotorcycleDetailPage() {
 
         <section className="detail-section">
           <div className="detail-section-header">
+            <h2 className="detail-section-title">このバイクの読みどころ</h2>
+            <p className="detail-section-copy">数値とタグから、最初に注目すると分かりやすいポイントをまとめています。</p>
+          </div>
+          <div className="detail-learning-grid">
+            {learningCards.map((card) => (
+              <article key={card.title} className="detail-learning-card">
+                <h3>{card.title}</h3>
+                <p>{card.description}</p>
+                <strong>{card.note}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="detail-section">
+          <div className="detail-section-header">
             <h2 className="detail-section-title">特徴タグ</h2>
             <p className="detail-section-copy">車種タイプや用途をひと目で確認できます。</p>
           </div>
           <div className="detail-tag-list">
             {bike.tags.map((tag) => (
               <span key={tag.id} className="card-tag">{tag.name}</span>
+            ))}
+          </div>
+        </section>
+
+        <section className="detail-section">
+          <div className="detail-section-header">
+            <h2 className="detail-section-title">スペックの見方</h2>
+            <p className="detail-section-copy">数値の意味を読み解くための観点を、この車両の値にあわせて整理しています。</p>
+          </div>
+          <div className="detail-guide-grid">
+            {guideCards.map((card) => (
+              <article key={card.title} className="detail-guide-card">
+                <h3>{card.title}</h3>
+                <p>{card.description}</p>
+                <strong>{card.currentBikeNote}</strong>
+              </article>
             ))}
           </div>
         </section>
@@ -328,6 +513,7 @@ export default function MotorcycleDetailPage() {
                     <span>{formatValue(similarBike.seat_height, " mm")}</span>
                     <span>{formatValue(similarBike.price, "万円")}</span>
                   </div>
+                  <p className="similar-bike-reason">{getSimilarBikeReason(bike, similarBike, sharedTags)}</p>
                   <div className="similar-bike-tags">
                     {sharedTags.slice(0, 4).map((tag) => (
                       <span key={tag.id} className="card-tag">{tag.name}</span>
