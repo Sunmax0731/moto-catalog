@@ -220,30 +220,30 @@ function parseUrlState(search: string) {
 export default function CatalogPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const initial = useRef(parseUrlState(location.search)).current;
+  const [initialState] = useState(() => parseUrlState(location.search));
   const [bikes, setBikes] = useState<Motorcycle[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(initial.page);
-  const [pageSize, setPageSize] = useState(initial.pageSize);
+  const [page, setPage] = useState(initialState.page);
+  const [pageSize, setPageSize] = useState(initialState.pageSize);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set(initial.tags));
+  const [selectedTags, setSelectedTags] = useState<Set<number>>(new Set(initialState.tags));
   const [singleSelectCats, setSingleSelectCats] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState(initial.q);
-  const [licenseClass, setLicenseClass] = useState(initial.licenseClass);
-  const [inspection, setInspection] = useState(initial.inspection);
-  const [sortKey, setSortKey] = useState(initial.sortKey);
-  const [statusFilter, setStatusFilter] = useState(initial.statusFilter);
+  const [searchQuery, setSearchQuery] = useState(initialState.q);
+  const [licenseClass, setLicenseClass] = useState(initialState.licenseClass);
+  const [inspection, setInspection] = useState(initialState.inspection);
+  const [sortKey, setSortKey] = useState(initialState.sortKey);
+  const [statusFilter, setStatusFilter] = useState(initialState.statusFilter);
   const [favorites, setFavorites] = useState<Set<number>>(loadFavorites);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [userHeight, setUserHeight] = useState("");
   const [userWeight, setUserWeight] = useState("");
-  const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initial.ranges);
+  const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initialState.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [helpCategory, setHelpCategory] = useState<string | null>(null);
-  const [pendingScrollRestore, setPendingScrollRestore] = useState<number | null>(() => {
+  const [pendingScrollRestore] = useState<number | null>(() => {
     const saved = sessionStorage.getItem("moto-catalog-scroll");
     if (!saved) return null;
     const parsed = Number(saved);
@@ -251,6 +251,7 @@ export default function CatalogPage() {
   });
   const helpButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const helpCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const hasRestoredScrollRef = useRef(false);
 
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
@@ -265,12 +266,12 @@ export default function CatalogPage() {
   }, []);
 
   useEffect(() => {
-    if (pendingScrollRestore == null || bikes.length === 0) return;
+    if (hasRestoredScrollRef.current || pendingScrollRestore == null || bikes.length === 0) return;
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: pendingScrollRestore, behavior: "auto" });
     });
     sessionStorage.removeItem("moto-catalog-scroll");
-    setPendingScrollRestore(null);
+    hasRestoredScrollRef.current = true;
   }, [pendingScrollRestore, bikes.length]);
 
   useEffect(() => {
@@ -377,17 +378,16 @@ export default function CatalogPage() {
     params.set("limit", String(pageSize));
     params.set("offset", String((page - 1) * pageSize));
     fetchJson<PaginatedResponse<Motorcycle>>(`/motorcycles?${params}`).then((res) => {
+      const totalPages = Math.max(1, Math.ceil(res.total / pageSize));
+      if (page > totalPages) {
+        setTotal(res.total);
+        setPage(totalPages);
+        return;
+      }
       setBikes(res.items);
       setTotal(res.total);
     });
   }, [selectedTags, searchQuery, ranges, singleSelectCats, tags, licenseClass, inspection, sortKey, statusFilter, page, pageSize]);
-
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, pageSize, total]);
 
   const toggleTag = (id: number) => {
     const tag = tags.find((t) => t.id === id);
@@ -446,7 +446,11 @@ export default function CatalogPage() {
   const toggleFavorite = (id: number) => {
     setFavorites((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       saveFavorites(next);
       return next;
     });
@@ -457,7 +461,11 @@ export default function CatalogPage() {
   const toggleCollapse = (cat: string) => {
     setCollapsedCats((prev) => {
       const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
+      if (next.has(cat)) {
+        next.delete(cat);
+      } else {
+        next.add(cat);
+      }
       return next;
     });
   };

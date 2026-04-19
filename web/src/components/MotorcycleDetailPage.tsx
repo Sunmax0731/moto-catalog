@@ -50,18 +50,12 @@ export default function MotorcycleDetailPage() {
   const navigate = useNavigate();
   const [bike, setBike] = useState<Motorcycle | null>(null);
   const [similarBikes, setSimilarBikes] = useState<Array<{ bike: Motorcycle; sharedTags: Motorcycle["tags"] }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!motorcycleId) {
-      setError("車両IDが指定されていません。");
-      setIsLoading(false);
-      return;
-    }
+    if (!motorcycleId) return;
 
     let cancelled = false;
-    setIsLoading(true);
 
     Promise.all([
       fetchJson<Motorcycle>(`/motorcycles/${motorcycleId}`),
@@ -87,16 +81,30 @@ export default function MotorcycleDetailPage() {
       })
       .catch(() => {
         if (cancelled) return;
+        setBike(null);
+        setSimilarBikes([]);
         setError("車両詳細の読み込みに失敗しました。");
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
   }, [motorcycleId]);
+
+  if (!motorcycleId) {
+    return (
+      <div className="detail-page">
+        <div className="detail-shell">
+          <button type="button" className="detail-back-btn" onClick={() => navigate("/")}>
+            一覧へ戻る
+          </button>
+          <p className="detail-message">車両IDが指定されていません。</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isLoading = error === "" && (bike == null || String(bike.id) !== motorcycleId);
 
   if (isLoading) {
     return (
