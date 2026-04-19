@@ -79,7 +79,7 @@
   --lineHeightBase600: 32px;
 
   /* Layout */
-  --sidebar-width: 300px;
+  --sidebar-width: 360px;
   --header-height: 120px;
 
   /* Page / Card 色相差 */
@@ -241,12 +241,14 @@ body {
 }
 
 .sidebar-group {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--spacingM);
   margin-bottom: var(--spacingXXL);
   padding-bottom: var(--spacingXXL);
   border-bottom: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
   scroll-margin-top: var(--spacingL);
+  min-width: 0;
 }
 
 .sidebar-group:last-child {
@@ -270,6 +272,10 @@ body {
   font-size: var(--fontSizeBase500);
   line-height: var(--lineHeightBase500);
   color: var(--colorNeutralForeground1);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-group-copy {
@@ -277,6 +283,10 @@ body {
   color: var(--colorNeutralForeground3);
   font-size: var(--fontSizeBase200);
   line-height: var(--lineHeightBase300);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ===== Filter Components ===== */
@@ -1092,6 +1102,11 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--spacingM);
+  min-width: 0;
+}
+
+.comparison-panel-header > * {
+  min-width: 0;
 }
 
 .comparison-panel-title {
@@ -2025,6 +2040,8 @@ body {
     top: 0;
     z-index: 100;
     height: 100vh;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
     transition: left 0.25s ease;
     box-shadow: var(--shadow16);
   }
