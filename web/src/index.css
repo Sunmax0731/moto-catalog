@@ -483,6 +483,31 @@ body {
   padding-bottom: var(--spacingXS);
 }
 
+.maker-tag-list {
+  display: grid;
+  gap: var(--spacingM);
+}
+
+.maker-tag-group {
+  display: grid;
+  gap: var(--spacingXS);
+}
+
+.maker-tag-group-title {
+  padding-left: var(--spacingXXS);
+  font-size: var(--fontSizeBase100);
+  line-height: var(--lineHeightBase100);
+  font-weight: var(--fontWeightSemibold);
+  letter-spacing: 0.04em;
+  color: var(--colorNeutralForeground3);
+  text-transform: uppercase;
+}
+
+.maker-tag-buttons {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 /* Fluent 2 Button: Small = 24px height */
 .tag-btn {
   display: inline-block;
@@ -1307,6 +1332,16 @@ body {
   color: var(--colorNeutralForeground3);
   font-size: var(--fontSizeBase200);
   line-height: var(--lineHeightBase200);
+}
+
+.pagination-ellipsis {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase300);
 }
 
 .pagination-btn {

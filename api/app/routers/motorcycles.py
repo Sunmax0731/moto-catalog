@@ -1,12 +1,86 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
+
 from app.database import get_db
 from app.models import Motorcycle, Tag
 from app.schemas import MotorcycleOut, PaginatedMotorcycles, TagOut
 
 router = APIRouter(prefix="/api/motorcycles", tags=["motorcycles"])
+
 V_ENGINE_LAYOUT_TAGS = {"V型", "L型", "L型（V型）"}
+NO_DATA_TAG_LABEL = "データなし"
+NO_DATA_TAG_CATEGORIES = (
+    "maker",
+    "type",
+    "usage",
+    "luggage",
+    "riding_position",
+    "transmission",
+    "cooling",
+    "engine_layout",
+    "cylinders",
+    "valves_per_cylinder",
+    "fuel_system",
+    "frame",
+    "suspension",
+    "clutch",
+    "drive",
+    "abs",
+    "start",
+    "traction_control",
+    "riding_mode",
+    "quickshifter",
+    "meter_type",
+)
+NO_DATA_TAG_BASE_ID = 1000
+NO_DATA_TAG_INDEX = {
+    category: index
+    for index, category in enumerate(NO_DATA_TAG_CATEGORIES)
+}
+
+
+def get_no_data_tag_id(category: str) -> int:
+    index = NO_DATA_TAG_INDEX.get(category)
+    if index is None:
+        hash_value = 0
+        for char in category:
+            hash_value = (hash_value * 31 + ord(char)) % 10000
+        return -(NO_DATA_TAG_BASE_ID + len(NO_DATA_TAG_INDEX) + hash_value)
+    return -(NO_DATA_TAG_BASE_ID + index)
+
+
+def build_no_data_tags(
+    db: Session,
+    categories: set[str] | None = None,
+) -> list[dict[str, object]]:
+    tags = db.query(Tag).all()
+    target_categories = sorted(
+        {
+            tag.category
+            for tag in tags
+            if categories is None or tag.category in categories
+        }
+    )
+    motorcycles = db.query(Motorcycle).options(joinedload(Motorcycle.tags)).all()
+
+    synthetic_tags: list[dict[str, object]] = []
+    for category in target_categories:
+        has_missing_data = any(
+            not any(tag.category == category for tag in motorcycle.tags)
+            for motorcycle in motorcycles
+        )
+        if not has_missing_data:
+            continue
+        synthetic_tags.append(
+            {
+                "id": get_no_data_tag_id(category),
+                "name": NO_DATA_TAG_LABEL,
+                "category": category,
+            }
+        )
+
+    return synthetic_tags
 
 
 def expand_equivalent_tag_ids(db: Session, tag: Tag | None) -> list[int]:
@@ -54,32 +128,76 @@ def list_motorcycles(
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
+    categories = set()
+    if tag_ids or or_tag_ids:
+        categories = {
+            tag.category
+            for tag in db.query(Tag)
+            .filter(Tag.id.in_(set(tag_ids + or_tag_ids)))
+            .all()
+        }
+        categories.update(category for category in NO_DATA_TAG_CATEGORIES if get_no_data_tag_id(category) in set(tag_ids + or_tag_ids))
+    synthetic_tags = {
+        tag["id"]: tag
+        for tag in build_no_data_tags(db, categories or None)
+    }
     selected_tags = {
         tag.id: tag
         for tag in db.query(Tag).filter(Tag.id.in_(set(tag_ids + or_tag_ids))).all()
     }
+
     if maker:
         query = query.filter(Motorcycle.maker == maker)
     if q:
         query = query.filter(Motorcycle.name.ilike(f"%{q}%"))
-    # AND タグ（単一選択モードのカテゴリ）: 各タグを個別にAND
-    if tag_ids:
-        for tid in tag_ids:
-            equivalent_tag_ids = expand_equivalent_tag_ids(db, selected_tags.get(tid)) or [tid]
+
+    for tag_id in tag_ids:
+        synthetic_tag = synthetic_tags.get(tag_id)
+        if synthetic_tag is not None:
             query = query.filter(
-                or_(*(Motorcycle.tags.any(Tag.id == equivalent_tid) for equivalent_tid in equivalent_tag_ids))
+                ~Motorcycle.tags.any(Tag.category == synthetic_tag["category"])
             )
-    # OR タグ（複数選択モードのカテゴリ）: カテゴリごとにグループ化してOR、カテゴリ間はAND
+            continue
+
+        equivalent_tag_ids = expand_equivalent_tag_ids(db, selected_tags.get(tag_id)) or [tag_id]
+        query = query.filter(
+            or_(*(Motorcycle.tags.any(Tag.id == equivalent_tag_id) for equivalent_tag_id in equivalent_tag_ids))
+        )
+
     if or_tag_ids:
-        or_tags = [selected_tags[tid] for tid in or_tag_ids if tid in selected_tags]
-        cats: dict[str, set[int]] = {}
-        for t in or_tags:
-            cats.setdefault(t.category, set()).update(expand_equivalent_tag_ids(db, t))
-        for cat_tag_ids in cats.values():
-            query = query.filter(
-                or_(*(Motorcycle.tags.any(Tag.id == tid) for tid in cat_tag_ids))
+        category_filters: dict[str, dict[str, object]] = {}
+
+        for tag_id in or_tag_ids:
+            synthetic_tag = synthetic_tags.get(tag_id)
+            if synthetic_tag is not None:
+                category_filter = category_filters.setdefault(
+                    synthetic_tag["category"],
+                    {"tag_ids": set(), "match_missing": False},
+                )
+                category_filter["match_missing"] = True
+                continue
+
+            selected_tag = selected_tags.get(tag_id)
+            if selected_tag is None:
+                continue
+
+            category_filter = category_filters.setdefault(
+                selected_tag.category,
+                {"tag_ids": set(), "match_missing": False},
             )
-    # レンジフィルタ
+            category_filter["tag_ids"].update(expand_equivalent_tag_ids(db, selected_tag))
+
+        for category, category_filter in category_filters.items():
+            conditions = [
+                Motorcycle.tags.any(Tag.id == tag_id)
+                for tag_id in category_filter["tag_ids"]
+            ]
+            if category_filter["match_missing"]:
+                conditions.append(~Motorcycle.tags.any(Tag.category == category))
+            if not conditions:
+                continue
+            query = query.filter(or_(*conditions))
+
     if displacement_min is not None:
         query = query.filter(Motorcycle.displacement >= displacement_min)
     if displacement_max is not None:
@@ -106,7 +224,7 @@ def list_motorcycles(
         query = query.filter(Motorcycle.wet_weight <= weight_max)
     if status:
         query = query.filter(Motorcycle.status == status)
-    # ソート
+
     sort_map = {
         "displacement_asc": Motorcycle.displacement.asc(),
         "displacement_desc": Motorcycle.displacement.desc(),
@@ -121,9 +239,28 @@ def list_motorcycles(
     }
     if sort and sort in sort_map:
         query = query.order_by(sort_map[sort])
+
     total = query.count()
     items = query.offset(offset).limit(limit).all()
     return {"items": items, "total": total}
+
+
+@router.get("/tags/all", response_model=list[TagOut])
+def list_tags(category: str | None = None, db: Session = Depends(get_db)):
+    query = db.query(Tag).order_by(Tag.category, Tag.name, Tag.id)
+    if category:
+        query = query.filter(Tag.category == category)
+
+    tags = [
+        {
+            "id": tag.id,
+            "name": tag.name,
+            "category": tag.category,
+        }
+        for tag in query.all()
+    ]
+    synthetic_tags = build_no_data_tags(db, {category} if category else None)
+    return tags + synthetic_tags
 
 
 @router.get("/{motorcycle_id}", response_model=MotorcycleOut)
@@ -134,11 +271,3 @@ def get_motorcycle(motorcycle_id: int, db: Session = Depends(get_db)):
         .filter(Motorcycle.id == motorcycle_id)
         .first()
     )
-
-
-@router.get("/tags/all", response_model=list[TagOut])
-def list_tags(category: str | None = None, db: Session = Depends(get_db)):
-    query = db.query(Tag)
-    if category:
-        query = query.filter(Tag.category == category)
-    return query.all()

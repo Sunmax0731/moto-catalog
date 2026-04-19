@@ -1,3 +1,4 @@
+import { buildNoDataTags, isNoDataTag } from "../catalogMeta";
 import type { Motorcycle, PaginatedResponse, Tag } from "../types";
 
 type StaticCatalogData = {
@@ -11,6 +12,14 @@ const V_ENGINE_LAYOUT_TAGS = new Set(["V型", "L型", "L型（V型）"]);
 const LEGACY_L_ENGINE_LAYOUT_TAGS = new Set(["L型", "L型（V型）"]);
 
 let staticCatalogPromise: Promise<StaticCatalogData> | null = null;
+
+function getCatalogTags(data: StaticCatalogData) {
+  return [...data.tags, ...buildNoDataTags(data.tags, data.motorcycles)];
+}
+
+function hasNoCategoryData(motorcycle: Motorcycle, category: string) {
+  return !motorcycle.tags.some((tag) => tag.category === category);
+}
 
 function toFiniteNumber(value: string | null, fallback: number) {
   if (value == null || value === "") return fallback;
@@ -95,7 +104,8 @@ function sortMotorcycles(items: Motorcycle[], sortKey: string | null) {
 }
 
 function filterMotorcycles(data: StaticCatalogData, searchParams: URLSearchParams): PaginatedResponse<Motorcycle> {
-  const selectedTags = new Map(data.tags.map((tag) => [tag.id, tag]));
+  const catalogTags = getCatalogTags(data);
+  const selectedTags = new Map(catalogTags.map((tag) => [tag.id, tag]));
   const q = searchParams.get("q")?.trim().toLowerCase();
   const tagIds = searchParams
     .getAll("tag_ids")
@@ -150,24 +160,43 @@ function filterMotorcycles(data: StaticCatalogData, searchParams: URLSearchParam
   });
 
   for (const tagId of tagIds) {
-    const equivalentTagIds = new Set(getEquivalentTagIds(data.tags, selectedTags.get(tagId)) || [tagId]);
+    const selectedTag = selectedTags.get(tagId);
+    if (!selectedTag) continue;
+    if (isNoDataTag(selectedTag)) {
+      items = items.filter((motorcycle) => hasNoCategoryData(motorcycle, selectedTag.category));
+      continue;
+    }
+    const equivalentTagIds = new Set(getEquivalentTagIds(catalogTags, selectedTag) || [tagId]);
     items = items.filter((motorcycle) => motorcycle.tags.some((tag) => equivalentTagIds.has(tag.id)));
   }
 
   if (orTagIds.length > 0) {
-    const tagsByCategory = new Map<string, Set<number>>();
+    const tagsByCategory = new Map<string, { tagIds: Set<number>; matchMissing: boolean }>();
     for (const tagId of orTagIds) {
       const tag = selectedTags.get(tagId);
       if (!tag) continue;
-      const categoryTagIds = tagsByCategory.get(tag.category) ?? new Set<number>();
-      for (const equivalentTagId of getEquivalentTagIds(data.tags, tag)) {
-        categoryTagIds.add(equivalentTagId);
+      const categoryFilter = tagsByCategory.get(tag.category) ?? {
+        tagIds: new Set<number>(),
+        matchMissing: false,
+      };
+      if (isNoDataTag(tag)) {
+        categoryFilter.matchMissing = true;
+      } else {
+        for (const equivalentTagId of getEquivalentTagIds(catalogTags, tag)) {
+          categoryFilter.tagIds.add(equivalentTagId);
+        }
       }
-      tagsByCategory.set(tag.category, categoryTagIds);
+      tagsByCategory.set(tag.category, categoryFilter);
     }
 
-    for (const categoryTagIds of tagsByCategory.values()) {
-      items = items.filter((motorcycle) => motorcycle.tags.some((tag) => categoryTagIds.has(tag.id)));
+    for (const [category, categoryFilter] of tagsByCategory.entries()) {
+      items = items.filter((motorcycle) => {
+        const matchesTag = motorcycle.tags.some((tag) => categoryFilter.tagIds.has(tag.id));
+        if (matchesTag) {
+          return true;
+        }
+        return categoryFilter.matchMissing && hasNoCategoryData(motorcycle, category);
+      });
     }
   }
 
@@ -197,13 +226,14 @@ async function loadStaticCatalogData() {
 
 export async function fetchStaticCatalogJson<T>(path: string): Promise<T> {
   const data = await loadStaticCatalogData();
+  const catalogTags = getCatalogTags(data);
   const url = new URL(path, "https://static.moto-catalog.local");
 
   if (url.pathname === "/motorcycles/tags/all") {
     const category = url.searchParams.get("category");
     const tags = category
-      ? data.tags.filter((tag) => tag.category === category)
-      : data.tags;
+      ? catalogTags.filter((tag) => tag.category === category)
+      : catalogTags;
     return tags as T;
   }
 

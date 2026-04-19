@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchJson } from "../api/client";
+import { getPaginationItems, groupMakerTags } from "../catalogMeta";
 import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -490,7 +491,22 @@ export default function CatalogPage() {
 
   const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
   const totalPages = Math.ceil(total / pageSize);
+  const paginationItems = totalPages > 1 ? getPaginationItems(page, totalPages) : [];
   const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [];
+
+  const renderTagButtons = (tagItems: Tag[]) => (
+    <>
+      {tagItems.map((tag) => (
+        <button
+          key={tag.id}
+          onClick={() => toggleTag(tag.id)}
+          className={`tag-btn ${selectedTags.has(tag.id) ? "tag-btn-active" : ""}`}
+        >
+          {tag.name}
+        </button>
+      ))}
+    </>
+  );
 
   if (searchQuery) {
     activeFilterChips.push({
@@ -798,17 +814,22 @@ export default function CatalogPage() {
                 </button>
               </div>
               {!isCollapsed && (
-                <div className="tag-list">
-                  {catTags.map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTag(tag.id)}
-                      className={`tag-btn ${selectedTags.has(tag.id) ? "tag-btn-active" : ""}`}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
+                cat === "maker" ? (
+                  <div className="tag-list maker-tag-list">
+                    {groupMakerTags(catTags).map((group) => (
+                      <div key={group.key} className="maker-tag-group">
+                        <div className="maker-tag-group-title">{group.label}</div>
+                        <div className="maker-tag-buttons">
+                          {renderTagButtons(group.tags)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="tag-list">
+                    {renderTagButtons(catTags)}
+                  </div>
+                )
               )}
             </div>
           );
@@ -1046,15 +1067,22 @@ export default function CatalogPage() {
               >
                 前へ
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  className={`pagination-btn ${p === page ? "pagination-btn-active" : ""}`}
-                  onClick={() => changePage(p)}
-                >
-                  {p}
-                </button>
-              ))}
+              {paginationItems.map((paginationItem) =>
+                typeof paginationItem === "number" ? (
+                  <button
+                    key={paginationItem}
+                    className={`pagination-btn ${paginationItem === page ? "pagination-btn-active" : ""}`}
+                    onClick={() => changePage(paginationItem)}
+                    aria-current={paginationItem === page ? "page" : undefined}
+                  >
+                    {paginationItem}
+                  </button>
+                ) : (
+                  <span key={paginationItem} className="pagination-ellipsis" aria-hidden="true">
+                    …
+                  </span>
+                )
+              )}
               <button
                 className="pagination-btn"
                 disabled={page >= totalPages}
