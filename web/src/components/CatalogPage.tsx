@@ -916,23 +916,46 @@ export default function CatalogPage() {
   return (
     <div className="app-layout">
       <header className="app-header">
-        <div className="header-content">
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label="フィルタを開く"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="app-title">バイク図鑑</h1>
-            <p className="app-subtitle">
-              タグやスペックで絞り込んでお気に入りの一台を見つけよう
-            </p>
+        <div className="header-shell">
+          <div className="header-content">
+            <button
+              className="sidebar-toggle"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label="フィルタを開く"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="app-title">バイク図鑑</h1>
+              <p className="app-subtitle">
+                タグやスペックで絞り込んでお気に入りの一台を見つけよう
+              </p>
+            </div>
+            <span className="result-count">{total}件</span>
           </div>
-          <span className="result-count">{total}件</span>
+
+          <section className="header-active-filters" aria-label="現在の検索条件">
+            <h2 className="header-active-filters-title">現在の検索条件</h2>
+            {activeFilterChips.length > 0 ? (
+              <div className="active-filters-list header-active-filters-list">
+                {activeFilterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className="active-filter-chip"
+                    onClick={chip.onRemove}
+                  >
+                    <span>{chip.label}</span>
+                    <span className="active-filter-chip-remove" aria-hidden="true">×</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="header-active-filters-empty">検索条件なし</p>
+            )}
+          </section>
         </div>
       </header>
 
@@ -946,27 +969,6 @@ export default function CatalogPage() {
         </aside>
 
         <main className="main-content">
-          {activeFilterChips.length > 0 && (
-            <section className="active-filters-panel" aria-label="現在の検索条件">
-              <div className="active-filters-header">
-                <h2 className="active-filters-title">現在の検索条件</h2>
-              </div>
-              <div className="active-filters-list">
-                {activeFilterChips.map((chip) => (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    className="active-filter-chip"
-                    onClick={chip.onRemove}
-                  >
-                    <span>{chip.label}</span>
-                    <span className="active-filter-chip-remove" aria-hidden="true">×</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           <div className="card-grid">
             {displayBikes.map((bike) => (
               <div
