@@ -1,4 +1,4 @@
-import { buildNoDataTags, isNoDataTag } from "../catalogMeta";
+import { buildNoDataTags, isNoDataTag, withElectricCatalogData } from "../catalogMeta";
 import type { Motorcycle, PaginatedResponse, Tag } from "../types";
 
 type StaticCatalogData = {
@@ -217,7 +217,12 @@ async function loadStaticCatalogData() {
       if (!response.ok) {
         throw new Error(`Static data error: ${response.status}`);
       }
-      return response.json() as Promise<StaticCatalogData>;
+      const data = (await response.json()) as StaticCatalogData;
+      const normalized = withElectricCatalogData(data.tags, data.motorcycles);
+      return {
+        ...data,
+        ...normalized,
+      };
     });
   }
 

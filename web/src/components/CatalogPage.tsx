@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchJson } from "../api/client";
-import { getPaginationItems, groupMakerTags } from "../catalogMeta";
+import { getCategoryHelp } from "../categoryHelp";
+import { getNoDataTagLabel, getPaginationItems, groupMakerTags } from "../catalogMeta";
 import type { Motorcycle, Tag, RangeFilter, PaginatedResponse } from "../types";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -34,6 +35,9 @@ const CATEGORY_ORDER = [
   "frame", "suspension", "clutch", "drive", "abs", "start",
   "traction_control", "riding_mode", "quickshifter", "meter_type",
 ];
+
+const BIKE_SILHOUETTE_URL = `${import.meta.env.BASE_URL}bike-silhouette.svg`;
+const NO_DATA_TAG_LABEL = getNoDataTagLabel();
 
 function getRunningCostInfo(displacement: number | null, fuelEconomy: number | null) {
   if (displacement == null) return null;
@@ -238,12 +242,15 @@ export default function CatalogPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [compareIds, setCompareIds] = useState<number[]>([]);
   const [showCompare, setShowCompare] = useState(false);
+  const [helpCategory, setHelpCategory] = useState<string | null>(null);
   const [pendingScrollRestore, setPendingScrollRestore] = useState<number | null>(() => {
     const saved = sessionStorage.getItem("moto-catalog-scroll");
     if (!saved) return null;
     const parsed = Number(saved);
     return Number.isFinite(parsed) ? parsed : null;
   });
+  const helpButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const helpCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     fetchJson<Tag[]>("/motorcycles/tags/all").then(setTags);
@@ -265,6 +272,30 @@ export default function CatalogPage() {
     sessionStorage.removeItem("moto-catalog-scroll");
     setPendingScrollRestore(null);
   }, [pendingScrollRestore, bikes.length]);
+
+  useEffect(() => {
+    if (!helpCategory) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    helpCloseButtonRef.current?.focus();
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      const activeCategory = helpCategory;
+      setHelpCategory(null);
+      window.setTimeout(() => {
+        helpButtonRefs.current[activeCategory]?.focus();
+      }, 0);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [helpCategory]);
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -431,6 +462,18 @@ export default function CatalogPage() {
     });
   };
 
+  const openHelp = (category: string) => {
+    setHelpCategory(category);
+  };
+
+  const closeHelp = (category = helpCategory) => {
+    setHelpCategory(null);
+    if (!category) return;
+    window.setTimeout(() => {
+      helpButtonRefs.current[category]?.focus();
+    }, 0);
+  };
+
   const clearAll = () => {
     setSelectedTags(new Set());
     setSingleSelectCats(new Set());
@@ -488,6 +531,14 @@ export default function CatalogPage() {
   const sortedCategories = CATEGORY_ORDER.filter((cat) =>
     tags.some((t) => t.category === cat)
   );
+  const activeHelp = helpCategory ? getCategoryHelp(helpCategory) : null;
+  const activeHelpTagOptions = helpCategory
+    ? tags.filter((tag) => tag.category === helpCategory && tag.name !== NO_DATA_TAG_LABEL)
+    : [];
+  const activeHelpSupportsNoData = helpCategory
+    ? tags.some((tag) => tag.category === helpCategory && tag.name === NO_DATA_TAG_LABEL)
+    : false;
+  const activeHelpMode = helpCategory && singleSelectCats.has(helpCategory) ? "AND" : "OR";
 
   const displayBikes = showFavoritesOnly ? bikes.filter((b) => favorites.has(b.id)) : bikes;
   const totalPages = Math.ceil(total / pageSize);
@@ -802,16 +853,32 @@ export default function CatalogPage() {
                     <span className="tag-count-badge">{selectedCount}</span>
                   )}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSelectionMode(cat);
-                  }}
-                  className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
-                  title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
-                >
-                  {singleSelectCats.has(cat) ? "AND" : "OR"}
-                </button>
+                <div className="tag-category-actions">
+                  <button
+                    ref={(node) => {
+                      helpButtonRefs.current[cat] = node;
+                    }}
+                    type="button"
+                    className="category-help-btn"
+                    aria-label={`${CATEGORY_LABEL[cat] ?? cat} の説明を開く`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openHelp(cat);
+                    }}
+                  >
+                    ?
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelectionMode(cat);
+                    }}
+                    className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
+                    title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
+                  >
+                    {singleSelectCats.has(cat) ? "AND" : "OR"}
+                  </button>
+                </div>
               </div>
               {!isCollapsed && (
                 cat === "maker" ? (
@@ -938,7 +1005,7 @@ export default function CatalogPage() {
                     </div>
                   </div>
                   <div className="card-maker">
-                    {bike.maker}{bike.displacement ? ` / ${bike.displacement}cc` : ""}
+                    {bike.maker}{bike.displacement != null ? ` / ${bike.displacement}cc` : ""}
                     {bike.model_code && <span className="card-model-code"> ({bike.model_code})</span>}
                   </div>
                   <div className="card-specs">
@@ -1095,6 +1162,105 @@ export default function CatalogPage() {
         </main>
       </div>
 
+      {activeHelp && helpCategory && (
+        <div className="help-modal-overlay" onClick={() => closeHelp(helpCategory)}>
+          <div
+            className="help-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-help-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="help-modal-header">
+              <div>
+                <p className="help-modal-kicker">{CATEGORY_LABEL[helpCategory] ?? helpCategory}</p>
+                <h2 id="category-help-title">{activeHelp.title}</h2>
+              </div>
+              <button
+                ref={helpCloseButtonRef}
+                type="button"
+                className="help-modal-close"
+                aria-label="説明モーダルを閉じる"
+                onClick={() => closeHelp(helpCategory)}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className={`help-modal-body ${activeHelp.parts?.length ? "help-modal-body-split" : ""}`}>
+              <div className="help-modal-copy">
+                <p className="help-modal-summary">{activeHelp.summary}</p>
+
+                <section className="help-modal-section">
+                  <h3>見るポイント</h3>
+                  <ul className="help-modal-list">
+                    {activeHelp.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section className="help-modal-section">
+                  <h3>絞り込みの読み方</h3>
+                  <p>{activeHelp.stateGuide}</p>
+                  <p className="help-modal-mode-note">
+                    現在の一致方式は <strong>{activeHelpMode}</strong> です。OR はいずれか一致、AND は同じ項目内の条件を重ねます。
+                  </p>
+                </section>
+
+                {activeHelpTagOptions.length > 0 && (
+                  <section className="help-modal-section">
+                    <h3>図鑑内の選択肢</h3>
+                    <div className="help-modal-tag-list">
+                      {activeHelpTagOptions.map((tag) => (
+                        <span key={tag.id} className="help-modal-tag">
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {activeHelpSupportsNoData && (
+                  <p className="help-no-data-note">
+                    この項目は <strong>{NO_DATA_TAG_LABEL}</strong> を併用できます。情報未登録の車両も拾いたいときに使ってください。
+                  </p>
+                )}
+              </div>
+
+              {activeHelp.parts?.length ? (
+                <div className="help-visual-card">
+                  <div className="help-silhouette-stage">
+                    <img src={BIKE_SILHOUETTE_URL} alt="" className="help-silhouette-image" />
+                    {activeHelp.parts.map((part) => (
+                      <div
+                        key={part.id}
+                        className={`help-focus-point help-focus-${part.tone}`}
+                        style={{ left: `${part.x}%`, top: `${part.y}%` }}
+                      >
+                        <span>{part.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="help-visual-legend">
+                    {activeHelp.parts.map((part) => (
+                      <div key={part.id} className="help-legend-item">
+                        <span className={`help-legend-dot help-focus-${part.tone}`} aria-hidden="true" />
+                        <div>
+                          <strong>{part.label}</strong>
+                          <p>{part.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       {compareIds.length > 0 && !showCompare && (
         <div className="compare-tray">
           <div className="compare-tray-content">
@@ -1138,7 +1304,7 @@ export default function CatalogPage() {
                 <tbody>
                   {([
                     ["メーカー", (b: Motorcycle) => b.maker],
-                    ["排気量", (b: Motorcycle) => b.displacement ? `${b.displacement}cc` : "-"],
+                    ["排気量", (b: Motorcycle) => b.displacement != null ? `${b.displacement}cc` : "-"],
                     ["年式", (b: Motorcycle) => b.year ? `${b.year}年` : "-"],
                     ["最高出力", (b: Motorcycle) => b.max_power != null ? `${b.max_power} PS` : "-"],
                     ["最大トルク", (b: Motorcycle) => b.max_torque != null ? `${b.max_torque} N·m` : "-"],

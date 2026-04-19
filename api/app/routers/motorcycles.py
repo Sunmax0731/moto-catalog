@@ -1,5 +1,7 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -38,6 +40,17 @@ NO_DATA_TAG_INDEX = {
     category: index
     for index, category in enumerate(NO_DATA_TAG_CATEGORIES)
 }
+ELECTRIC_TAG_LABEL = "電気バイク"
+ELECTRIC_TAG_CATEGORY = "type"
+ELECTRIC_TAG_ID = -2000
+
+
+def serialize_tag(tag: Tag) -> dict[str, object]:
+    return {
+        "id": tag.id,
+        "name": tag.name,
+        "category": tag.category,
+    }
 
 
 def get_no_data_tag_id(category: str) -> int:
@@ -48,6 +61,112 @@ def get_no_data_tag_id(category: str) -> int:
             hash_value = (hash_value * 31 + ord(char)) % 10000
         return -(NO_DATA_TAG_BASE_ID + len(NO_DATA_TAG_INDEX) + hash_value)
     return -(NO_DATA_TAG_BASE_ID + index)
+
+
+def get_electric_tag(db: Session) -> dict[str, object] | None:
+    existing_tag = (
+        db.query(Tag)
+        .filter(
+            Tag.category == ELECTRIC_TAG_CATEGORY,
+            Tag.name == ELECTRIC_TAG_LABEL,
+        )
+        .first()
+    )
+    has_zero_cc_bike = (
+        db.query(Motorcycle.id)
+        .filter(Motorcycle.displacement == 0)
+        .first()
+        is not None
+    )
+
+    if existing_tag is None and not has_zero_cc_bike:
+        return None
+    if existing_tag is not None:
+        return serialize_tag(existing_tag)
+    return {
+        "id": ELECTRIC_TAG_ID,
+        "name": ELECTRIC_TAG_LABEL,
+        "category": ELECTRIC_TAG_CATEGORY,
+    }
+
+
+def category_has_data(motorcycle: Motorcycle, category: str) -> bool:
+    if any(tag.category == category for tag in motorcycle.tags):
+        return True
+    return category == ELECTRIC_TAG_CATEGORY and motorcycle.displacement == 0
+
+
+def missing_category_condition(category: str):
+    base_condition = ~Motorcycle.tags.any(Tag.category == category)
+    if category != ELECTRIC_TAG_CATEGORY:
+        return base_condition
+    return and_(
+        base_condition,
+        or_(Motorcycle.displacement.is_(None), Motorcycle.displacement != 0),
+    )
+
+
+def electric_tag_condition():
+    return or_(
+        Motorcycle.displacement == 0,
+        Motorcycle.tags.any(
+            and_(
+                Tag.category == ELECTRIC_TAG_CATEGORY,
+                Tag.name == ELECTRIC_TAG_LABEL,
+            )
+        ),
+    )
+
+
+def is_electric_tag_selection(
+    tag_id: int,
+    selected_tag: Tag | None,
+    electric_tag: dict[str, object] | None,
+) -> bool:
+    if electric_tag is not None and tag_id == electric_tag["id"]:
+        return True
+    return (
+        selected_tag is not None
+        and selected_tag.category == ELECTRIC_TAG_CATEGORY
+        and selected_tag.name == ELECTRIC_TAG_LABEL
+    )
+
+
+def serialize_motorcycle(
+    motorcycle: Motorcycle,
+    electric_tag: dict[str, object] | None,
+) -> dict[str, object]:
+    tags = [serialize_tag(tag) for tag in motorcycle.tags]
+    has_electric_tag = any(
+        tag["category"] == ELECTRIC_TAG_CATEGORY and tag["name"] == ELECTRIC_TAG_LABEL
+        for tag in tags
+    )
+
+    if (
+        electric_tag is not None
+        and motorcycle.displacement == 0
+        and not has_electric_tag
+    ):
+        tags.append(electric_tag)
+
+    return {
+        "id": motorcycle.id,
+        "name": motorcycle.name,
+        "maker": motorcycle.maker,
+        "displacement": motorcycle.displacement,
+        "year": motorcycle.year,
+        "max_power": motorcycle.max_power,
+        "max_torque": motorcycle.max_torque,
+        "seat_height": motorcycle.seat_height,
+        "description": motorcycle.description,
+        "model_code": motorcycle.model_code,
+        "wet_weight": motorcycle.wet_weight,
+        "price": motorcycle.price,
+        "fuel_economy": motorcycle.fuel_economy,
+        "status": motorcycle.status,
+        "image_url": motorcycle.image_url,
+        "tags": tags,
+    }
 
 
 def build_no_data_tags(
@@ -67,7 +186,7 @@ def build_no_data_tags(
     synthetic_tags: list[dict[str, object]] = []
     for category in target_categories:
         has_missing_data = any(
-            not any(tag.category == category for tag in motorcycle.tags)
+            not category_has_data(motorcycle, category)
             for motorcycle in motorcycles
         )
         if not has_missing_data:
@@ -128,22 +247,31 @@ def list_motorcycles(
     db: Session = Depends(get_db),
 ):
     query = db.query(Motorcycle).options(joinedload(Motorcycle.tags))
+    electric_tag = get_electric_tag(db)
+    selected_tag_ids = set(tag_ids + or_tag_ids)
     categories = set()
-    if tag_ids or or_tag_ids:
+    if selected_tag_ids:
         categories = {
             tag.category
             for tag in db.query(Tag)
-            .filter(Tag.id.in_(set(tag_ids + or_tag_ids)))
+            .filter(Tag.id.in_(selected_tag_ids))
             .all()
         }
-        categories.update(category for category in NO_DATA_TAG_CATEGORIES if get_no_data_tag_id(category) in set(tag_ids + or_tag_ids))
+        categories.update(
+            category
+            for category in NO_DATA_TAG_CATEGORIES
+            if get_no_data_tag_id(category) in selected_tag_ids
+        )
+        if electric_tag is not None and electric_tag["id"] in selected_tag_ids:
+            categories.add(ELECTRIC_TAG_CATEGORY)
+
     synthetic_tags = {
         tag["id"]: tag
         for tag in build_no_data_tags(db, categories or None)
     }
     selected_tags = {
         tag.id: tag
-        for tag in db.query(Tag).filter(Tag.id.in_(set(tag_ids + or_tag_ids))).all()
+        for tag in db.query(Tag).filter(Tag.id.in_(selected_tag_ids)).all()
     }
 
     if maker:
@@ -152,38 +280,56 @@ def list_motorcycles(
         query = query.filter(Motorcycle.name.ilike(f"%{q}%"))
 
     for tag_id in tag_ids:
+        selected_tag = selected_tags.get(tag_id)
+        if is_electric_tag_selection(tag_id, selected_tag, electric_tag):
+            query = query.filter(electric_tag_condition())
+            continue
+
         synthetic_tag = synthetic_tags.get(tag_id)
         if synthetic_tag is not None:
             query = query.filter(
-                ~Motorcycle.tags.any(Tag.category == synthetic_tag["category"])
+                missing_category_condition(str(synthetic_tag["category"]))
             )
             continue
 
-        equivalent_tag_ids = expand_equivalent_tag_ids(db, selected_tags.get(tag_id)) or [tag_id]
+        equivalent_tag_ids = expand_equivalent_tag_ids(db, selected_tag) or [tag_id]
         query = query.filter(
-            or_(*(Motorcycle.tags.any(Tag.id == equivalent_tag_id) for equivalent_tag_id in equivalent_tag_ids))
+            or_(
+                *(
+                    Motorcycle.tags.any(Tag.id == equivalent_tag_id)
+                    for equivalent_tag_id in equivalent_tag_ids
+                )
+            )
         )
 
     if or_tag_ids:
-        category_filters: dict[str, dict[str, object]] = {}
+        category_filters: dict[str, dict[str, Any]] = {}
 
         for tag_id in or_tag_ids:
+            selected_tag = selected_tags.get(tag_id)
+            if is_electric_tag_selection(tag_id, selected_tag, electric_tag):
+                category_filter = category_filters.setdefault(
+                    ELECTRIC_TAG_CATEGORY,
+                    {"tag_ids": set(), "match_missing": False, "match_electric": False},
+                )
+                category_filter["match_electric"] = True
+                continue
+
             synthetic_tag = synthetic_tags.get(tag_id)
             if synthetic_tag is not None:
                 category_filter = category_filters.setdefault(
-                    synthetic_tag["category"],
-                    {"tag_ids": set(), "match_missing": False},
+                    str(synthetic_tag["category"]),
+                    {"tag_ids": set(), "match_missing": False, "match_electric": False},
                 )
                 category_filter["match_missing"] = True
                 continue
 
-            selected_tag = selected_tags.get(tag_id)
             if selected_tag is None:
                 continue
 
             category_filter = category_filters.setdefault(
                 selected_tag.category,
-                {"tag_ids": set(), "match_missing": False},
+                {"tag_ids": set(), "match_missing": False, "match_electric": False},
             )
             category_filter["tag_ids"].update(expand_equivalent_tag_ids(db, selected_tag))
 
@@ -193,7 +339,9 @@ def list_motorcycles(
                 for tag_id in category_filter["tag_ids"]
             ]
             if category_filter["match_missing"]:
-                conditions.append(~Motorcycle.tags.any(Tag.category == category))
+                conditions.append(missing_category_condition(category))
+            if category_filter["match_electric"]:
+                conditions.append(electric_tag_condition())
             if not conditions:
                 continue
             query = query.filter(or_(*conditions))
@@ -242,7 +390,10 @@ def list_motorcycles(
 
     total = query.count()
     items = query.offset(offset).limit(limit).all()
-    return {"items": items, "total": total}
+    return {
+        "items": [serialize_motorcycle(item, electric_tag) for item in items],
+        "total": total,
+    }
 
 
 @router.get("/tags/all", response_model=list[TagOut])
@@ -251,23 +402,30 @@ def list_tags(category: str | None = None, db: Session = Depends(get_db)):
     if category:
         query = query.filter(Tag.category == category)
 
-    tags = [
-        {
-            "id": tag.id,
-            "name": tag.name,
-            "category": tag.category,
-        }
-        for tag in query.all()
-    ]
+    tags = [serialize_tag(tag) for tag in query.all()]
+    electric_tag = get_electric_tag(db)
+    if (
+        electric_tag is not None
+        and (category is None or category == ELECTRIC_TAG_CATEGORY)
+        and not any(
+            tag["category"] == ELECTRIC_TAG_CATEGORY and tag["name"] == ELECTRIC_TAG_LABEL
+            for tag in tags
+        )
+    ):
+        tags.append(electric_tag)
+
     synthetic_tags = build_no_data_tags(db, {category} if category else None)
     return tags + synthetic_tags
 
 
 @router.get("/{motorcycle_id}", response_model=MotorcycleOut)
 def get_motorcycle(motorcycle_id: int, db: Session = Depends(get_db)):
-    return (
+    motorcycle = (
         db.query(Motorcycle)
         .options(joinedload(Motorcycle.tags))
         .filter(Motorcycle.id == motorcycle_id)
         .first()
     )
+    if motorcycle is None:
+        return None
+    return serialize_motorcycle(motorcycle, get_electric_tag(db))

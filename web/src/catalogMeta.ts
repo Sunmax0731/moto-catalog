@@ -1,7 +1,10 @@
 import type { Motorcycle, Tag } from "./types";
 
-const NO_DATA_TAG_LABEL = "\u30c7\u30fc\u30bf\u306a\u3057";
+const NO_DATA_TAG_LABEL = "データなし";
 const NO_DATA_TAG_BASE_ID = 1_000;
+const ELECTRIC_TAG_LABEL = "電気バイク";
+const ELECTRIC_TAG_CATEGORY = "type";
+const ELECTRIC_TAG_ID = -2_000;
 const NO_DATA_CATEGORY_ORDER = [
   "maker",
   "type",
@@ -33,62 +36,62 @@ const NO_DATA_CATEGORY_INDEX = new Map<string, number>(
 const MAKER_GROUPS: Array<{ key: string; label: string; makers: string[] }> = [
   {
     key: "japan",
-    label: "\u65e5\u672c\uff08\u56fd\u7523\uff09",
+    label: "日本（国産）",
     makers: ["HONDA", "YAMAHA", "SUZUKI", "KAWASAKI"],
   },
   {
     key: "america",
-    label: "\u30a2\u30e1\u30ea\u30ab",
+    label: "アメリカ",
     makers: ["Harley-Davidson", "Indian", "Buell", "Victory"],
   },
   {
     key: "italy",
-    label: "\u30a4\u30bf\u30ea\u30a2",
+    label: "イタリア",
     makers: ["Aprilia", "Benelli", "Beta", "Bimota", "Ducati", "Moto Guzzi", "MV Agusta", "PIAGGIO", "SWM", "Vespa"],
   },
   {
     key: "uk",
-    label: "\u30a4\u30ae\u30ea\u30b9",
+    label: "イギリス",
     makers: ["Triumph"],
   },
   {
     key: "germany",
-    label: "\u30c9\u30a4\u30c4",
+    label: "ドイツ",
     makers: ["BMW"],
   },
   {
     key: "austria",
-    label: "\u30aa\u30fc\u30b9\u30c8\u30ea\u30a2",
+    label: "オーストリア",
     makers: ["KTM"],
   },
   {
     key: "sweden",
-    label: "\u30b9\u30a6\u30a7\u30fc\u30c7\u30f3",
+    label: "スウェーデン",
     makers: ["Husqvarna"],
   },
   {
     key: "spain",
-    label: "\u30b9\u30da\u30a4\u30f3",
+    label: "スペイン",
     makers: ["GASGAS"],
   },
   {
     key: "france",
-    label: "\u30d5\u30e9\u30f3\u30b9",
+    label: "フランス",
     makers: ["Sherco"],
   },
   {
     key: "india",
-    label: "\u30a4\u30f3\u30c9",
+    label: "インド",
     makers: ["Royal Enfield"],
   },
   {
     key: "taiwan",
-    label: "\u53f0\u6e7e",
+    label: "台湾",
     makers: ["KYMCO"],
   },
   {
     key: "russia",
-    label: "\u30ed\u30b7\u30a2",
+    label: "ロシア",
     makers: ["Ural"],
   },
 ];
@@ -117,8 +120,23 @@ function getRange(start: number, end: number) {
   return items;
 }
 
+function hasCategoryData(motorcycle: Motorcycle, category: string) {
+  if (motorcycle.tags.some((tag) => tag.category === category)) {
+    return true;
+  }
+  return category === ELECTRIC_TAG_CATEGORY && motorcycle.displacement === 0;
+}
+
+function findElectricTag(tags: Tag[]) {
+  return tags.find((tag) => isElectricTag(tag)) ?? null;
+}
+
 export function getNoDataTagLabel() {
   return NO_DATA_TAG_LABEL;
+}
+
+export function getElectricTagLabel() {
+  return ELECTRIC_TAG_LABEL;
 }
 
 export function getNoDataTagId(category: string) {
@@ -133,11 +151,52 @@ export function isNoDataTag(tag: Pick<Tag, "id" | "name">) {
   return tag.id < 0 && tag.name === NO_DATA_TAG_LABEL;
 }
 
+export function isElectricTag(tag: Pick<Tag, "name" | "category">) {
+  return tag.category === ELECTRIC_TAG_CATEGORY && tag.name === ELECTRIC_TAG_LABEL;
+}
+
+export function getElectricTag(tags: Tag[] = []): Tag {
+  return (
+    findElectricTag(tags) ?? {
+      id: ELECTRIC_TAG_ID,
+      name: ELECTRIC_TAG_LABEL,
+      category: ELECTRIC_TAG_CATEGORY,
+    }
+  );
+}
+
+export function withElectricCatalogData(tags: Tag[], motorcycles: Motorcycle[]) {
+  const shouldAddElectricTag = motorcycles.some(
+    (motorcycle) => motorcycle.displacement === 0 || motorcycle.tags.some((tag) => isElectricTag(tag))
+  );
+
+  if (!shouldAddElectricTag) {
+    return { tags, motorcycles };
+  }
+
+  const electricTag = getElectricTag(tags);
+  const nextTags = findElectricTag(tags) ? tags : [...tags, electricTag];
+  const nextMotorcycles = motorcycles.map((motorcycle) => {
+    if (motorcycle.displacement !== 0 || motorcycle.tags.some((tag) => isElectricTag(tag))) {
+      return motorcycle;
+    }
+    return {
+      ...motorcycle,
+      tags: [...motorcycle.tags, electricTag],
+    };
+  });
+
+  return {
+    tags: nextTags,
+    motorcycles: nextMotorcycles,
+  };
+}
+
 export function buildNoDataTags(tags: Tag[], motorcycles: Motorcycle[]): Tag[] {
   const categories = [...new Set(tags.map((tag) => tag.category))];
   return categories.flatMap((category) => {
     const hasMissingData = motorcycles.some(
-      (motorcycle) => !motorcycle.tags.some((tag) => tag.category === category)
+      (motorcycle) => !hasCategoryData(motorcycle, category)
     );
     if (!hasMissingData) {
       return [];
@@ -168,7 +227,7 @@ export function groupMakerTags(tags: Tag[]): MakerTagGroup[] {
   if (otherTags.length > 0) {
     groups.push({
       key: "other",
-      label: "\u305d\u306e\u4ed6",
+      label: "その他",
       tags: otherTags,
     });
   }
