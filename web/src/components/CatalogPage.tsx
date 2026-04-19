@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchJson } from "../api/client";
 import { getCategoryHelp } from "../categoryHelp";
@@ -36,7 +36,7 @@ const CATEGORY_ORDER = [
   "traction_control", "riding_mode", "quickshifter", "meter_type",
 ];
 
-const BIKE_SILHOUETTE_URL = `${import.meta.env.BASE_URL}bike-silhouette.svg`;
+const BIKE_SILHOUETTE_URL = `${import.meta.env.BASE_URL}bike-silhouette-asset.png`;
 const NO_DATA_TAG_LABEL = getNoDataTagLabel();
 const CARD_TAG_PRIORITY = ["type", "usage", "luggage", "riding_position", "drive", "engine_layout"] as const;
 
@@ -56,6 +56,94 @@ type CatalogCardFact = {
   value: string;
   valueClassName?: string;
 };
+
+type InlineHelpProps = {
+  label: string;
+  title: string;
+  children: ReactNode;
+  align?: "start" | "end";
+  className?: string;
+};
+
+function InlineHelp({
+  label,
+  title,
+  children,
+  align = "start",
+  className,
+}: InlineHelpProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current || !(event.target instanceof Node)) {
+        return;
+      }
+
+      if (!rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div
+      ref={rootRef}
+      className={[
+        "inline-help",
+        align === "end" ? "inline-help-end" : "",
+        open ? "inline-help-open" : "",
+        className ?? "",
+      ].filter(Boolean).join(" ")}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLElement && target.matches(":focus-visible")) {
+          setOpen(true);
+        }
+      }}
+      onBlurCapture={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (!rootRef.current || !(nextTarget instanceof Node) || !rootRef.current.contains(nextTarget)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="inline-help-trigger"
+        aria-label={label}
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
+        i
+      </button>
+      <div className="inline-help-panel" role="note">
+        <p className="inline-help-title">{title}</p>
+        <div className="inline-help-body">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 function getTagSelectionModeMeta(isSingleSelect: boolean): SelectionModeMeta {
   if (isSingleSelect) {
@@ -870,12 +958,18 @@ export default function CatalogPage() {
   const headerFilterSummary = activeFilterSummaryParts.length > 0
     ? activeFilterSummaryParts.join(" / ")
     : "検索条件なし";
+  const explorationCardTitle = hasFilters ? "4つの手順で条件を整える" : "4つの手順から探し始める";
   const explorationTitle = hasFilters
     ? "条件を足し引きしながら候補を整理しています"
     : "まずは入口を決めて、気になる軸から深掘りできます";
   const explorationCopy = hasFilters
     ? "探索開始から基本条件、詳細条件、比較・保存の順に見直すと、今の条件を崩さずに候補を整えやすくなります。"
     : "車名検索やおすすめ条件で広く見始めてから、免許・体格・タグで徐々に絞り込めます。";
+  const comparisonCardTitle = compareBikes.length > 0 ? `${compareBikes.length}台を比較候補として保持中` : "比較候補とお気に入り";
+  const comparisonHelpTitle = compareBikes.length > 0 ? `${compareBikes.length}台を保持したまま見比べられます` : "気になる候補を比較と保存で残せます";
+  const comparisonHelpCopy = compareReady
+    ? "比較候補が揃っているので、一覧を崩さずにスペック比較へ進めます。"
+    : "カードから比較に追加すると、ページ移動後も候補を保持したまま見比べられます。";
   const emptyStateTitle = hasFilters
     ? "条件を少し緩めると候補が見つかる可能性があります"
     : "表示できる候補がまだ見つかっていません";
@@ -1204,11 +1298,18 @@ export default function CatalogPage() {
                     >
                       {selectionModeMeta.buttonLabel}
                     </button>
+                    <InlineHelp
+                      label={`${CATEGORY_LABEL[cat] ?? cat} の選び方の説明を表示`}
+                      title={selectionModeMeta.title}
+                      align="end"
+                      className="tag-mode-help"
+                    >
+                      <p>{selectionModeMeta.description}</p>
+                    </InlineHelp>
                   </div>
                 </div>
                 {!isCollapsed && (
                   <>
-                    <p className="tag-category-mode-note">{selectionModeMeta.description}</p>
                     {cat === "maker" ? (
                       <div className="tag-list maker-tag-list">
                         {groupMakerTags(catTags).map((group) => (
@@ -1434,9 +1535,19 @@ export default function CatalogPage() {
         <main className="main-content">
           <section className="catalog-structure-grid">
             <article className="catalog-structure-card">
-              <p className="catalog-structure-kicker">探索の流れ</p>
-              <h2 className="catalog-structure-title">{explorationTitle}</h2>
-              <p className="catalog-structure-copy">{explorationCopy}</p>
+              <div className="catalog-structure-header">
+                <div className="catalog-structure-heading">
+                  <p className="catalog-structure-kicker">探索の流れ</p>
+                  <h2 className="catalog-structure-title">{explorationCardTitle}</h2>
+                </div>
+                <InlineHelp
+                  label="探索の流れの説明を表示"
+                  title={explorationTitle}
+                  align="end"
+                >
+                  <p>{explorationCopy}</p>
+                </InlineHelp>
+              </div>
               <div className="catalog-step-grid">
                 {quickJumpActions.map((action) => (
                   <button
@@ -1453,15 +1564,19 @@ export default function CatalogPage() {
             </article>
 
             <article className="catalog-structure-card catalog-structure-card-emphasis">
-              <p className="catalog-structure-kicker">比較・保存</p>
-              <h2 className="catalog-structure-title">
-                {compareBikes.length > 0 ? `${compareBikes.length}台を比較候補として保持中` : "気になる候補を比較と保存で残せます"}
-              </h2>
-              <p className="catalog-structure-copy">
-                {compareReady
-                  ? "比較候補が揃っているので、一覧を崩さずにスペック比較へ進めます。"
-                  : "カードから比較に追加すると、ページ移動後も候補を保持したまま見比べられます。"}
-              </p>
+              <div className="catalog-structure-header">
+                <div className="catalog-structure-heading">
+                  <p className="catalog-structure-kicker">比較・保存</p>
+                  <h2 className="catalog-structure-title">{comparisonCardTitle}</h2>
+                </div>
+                <InlineHelp
+                  label="比較と保存の説明を表示"
+                  title={comparisonHelpTitle}
+                  align="end"
+                >
+                  <p>{comparisonHelpCopy}</p>
+                </InlineHelp>
+              </div>
               <div className="catalog-structure-stats">
                 <span className="comparison-stat"><strong>{compareBikes.length}</strong>比較候補</span>
                 <span className="comparison-stat"><strong>{favorites.size}</strong>お気に入り</span>
