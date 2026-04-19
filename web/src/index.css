@@ -273,6 +273,19 @@ body {
   border-bottom: none;
 }
 
+.sidebar-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacingM);
+}
+
+.sidebar-group-heading {
+  display: grid;
+  gap: var(--spacingXS);
+  min-width: 0;
+}
+
 .sidebar-group-kicker {
   margin: 0;
   font-size: var(--fontSizeBase100);
@@ -457,6 +470,18 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0 0 var(--spacingM);
+}
+
+.filter-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacingS);
+  margin-bottom: var(--spacingM);
+}
+
+.filter-section-header .filter-section-title {
+  margin: 0;
 }
 
 /* Range Filter */

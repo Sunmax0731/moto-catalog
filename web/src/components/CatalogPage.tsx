@@ -1132,9 +1132,19 @@ export default function CatalogPage() {
           sidebarSectionRefs.current["exploration-basics"] = node;
         }}
       >
-        <p className="sidebar-group-kicker">基本条件</p>
-        <h2 className="sidebar-group-title">乗れる条件と体格を整える</h2>
-        <p className="sidebar-group-copy">免許や車検条件を先に決めておくと、あとから細かい比較をしやすくなります。</p>
+        <div className="sidebar-group-header">
+          <div className="sidebar-group-heading">
+            <p className="sidebar-group-kicker">基本条件</p>
+            <h2 className="sidebar-group-title">乗れる条件と体格を整える</h2>
+          </div>
+          <InlineHelp
+            label="基本条件の説明を表示"
+            title="乗れる条件と体格を整える"
+            align="end"
+          >
+            <p>免許や車検条件を先に決めておくと、あとから細かい比較をしやすくなります。</p>
+          </InlineHelp>
+        </div>
 
         <div className="filter-section">
           <h3 className="filter-section-title">免許・車検で絞り込み</h3>
@@ -1173,8 +1183,16 @@ export default function CatalogPage() {
         </div>
 
         <div className="filter-section">
-          <h3 className="filter-section-title">あなたの体格</h3>
-          <p className="filter-section-copy">ここで入力した値は一覧の足つき・PW比の目安表示に反映されます。</p>
+          <div className="filter-section-header">
+            <h3 className="filter-section-title">あなたの体格</h3>
+            <InlineHelp
+              label="あなたの体格の説明を表示"
+              title="あなたの体格"
+              align="end"
+            >
+              <p>ここで入力した値は一覧の足つき・PW比の目安表示に反映されます。</p>
+            </InlineHelp>
+          </div>
           <div className="range-field">
             <label className="range-label">身長 (cm)</label>
             <input
@@ -1204,9 +1222,19 @@ export default function CatalogPage() {
           sidebarSectionRefs.current["exploration-details"] = node;
         }}
       >
-        <p className="sidebar-group-kicker">詳細条件</p>
-        <h2 className="sidebar-group-title">スペックとタグで深掘りする</h2>
-        <p className="sidebar-group-copy">候補が見えてきたら、排気量や装備タグで違いを詰めていきます。</p>
+        <div className="sidebar-group-header">
+          <div className="sidebar-group-heading">
+            <p className="sidebar-group-kicker">詳細条件</p>
+            <h2 className="sidebar-group-title">スペックとタグで深掘りする</h2>
+          </div>
+          <InlineHelp
+            label="詳細条件の説明を表示"
+            title="スペックとタグで深掘りする"
+            align="end"
+          >
+            <p>候補が見えてきたら、排気量や装備タグで違いを詰めていきます。</p>
+          </InlineHelp>
+        </div>
 
         <div className="filter-section">
           <h3 className="filter-section-title">スペックで絞り込み</h3>
@@ -1236,8 +1264,16 @@ export default function CatalogPage() {
         </div>
 
         <div className="filter-section">
-          <h3 className="filter-section-title">タグで絞り込み</h3>
-          <p className="filter-section-copy">各項目は「複数」で広く、「1つ」で代表候補に絞れます。意味が分からない項目は「?」で確認できます。</p>
+          <div className="filter-section-header">
+            <h3 className="filter-section-title">タグで絞り込み</h3>
+            <InlineHelp
+              label="タグで絞り込みの説明を表示"
+              title="タグで絞り込み"
+              align="end"
+            >
+              <p>各項目は「複数」で広く、「1つ」で代表候補に絞れます。意味が分からない項目は「?」で確認できます。</p>
+            </InlineHelp>
+          </div>
           {tagLoadError ? (
             <div className="filter-state-note filter-state-note-error">
               <p>{tagLoadError}</p>
@@ -1340,9 +1376,19 @@ export default function CatalogPage() {
           sidebarSectionRefs.current["exploration-organize"] = node;
         }}
       >
-        <p className="sidebar-group-kicker">比較・保存・表示</p>
-        <h2 className="sidebar-group-title">候補を並べて整理する</h2>
-        <p className="sidebar-group-copy">比較とお気に入りを使って候補を残しつつ、一覧の見え方もここで整えます。</p>
+        <div className="sidebar-group-header">
+          <div className="sidebar-group-heading">
+            <p className="sidebar-group-kicker">比較・保存・表示</p>
+            <h2 className="sidebar-group-title">候補を並べて整理する</h2>
+          </div>
+          <InlineHelp
+            label="比較・保存・表示の説明を表示"
+            title="候補を並べて整理する"
+            align="end"
+          >
+            <p>比較とお気に入りを使って候補を残しつつ、一覧の見え方もここで整えます。</p>
+          </InlineHelp>
+        </div>
 
         <div className="comparison-panel">
           <div className="comparison-panel-header">
