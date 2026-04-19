@@ -240,7 +240,7 @@ export default function CatalogPage() {
   const [ranges, setRanges] = useState<Record<string, RangeFilter>>(initialState.ranges);
   const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [compareBikes, setCompareBikes] = useState<Motorcycle[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [helpCategory, setHelpCategory] = useState<string | null>(null);
   const [pendingScrollRestore] = useState<number | null>(() => {
@@ -251,6 +251,7 @@ export default function CatalogPage() {
   });
   const helpButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const helpCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sidebarSectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasRestoredScrollRef = useRef(false);
 
   useEffect(() => {
@@ -437,10 +438,17 @@ export default function CatalogPage() {
     setPage(1);
   };
 
-  const toggleCompare = (id: number) => {
-    setCompareIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev
-    );
+  const toggleCompare = (bike: Motorcycle) => {
+    setCompareBikes((prev) => {
+      const alreadySelected = prev.some((item) => item.id === bike.id);
+      if (alreadySelected) {
+        return prev.filter((item) => item.id !== bike.id);
+      }
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, bike];
+    });
   };
 
   const toggleFavorite = (id: number) => {
@@ -456,7 +464,22 @@ export default function CatalogPage() {
     });
   };
 
-  const compareBikes = compareIds.map((id) => bikes.find((b) => b.id === id)).filter(Boolean) as Motorcycle[];
+  const scrollToSidebarSection = (sectionId: string) => {
+    const scroll = () => {
+      sidebarSectionRefs.current[sectionId]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    };
+
+    if (window.innerWidth <= 768) {
+      setSidebarOpen(true);
+      window.setTimeout(scroll, 120);
+      return;
+    }
+
+    scroll();
+  };
 
   const toggleCollapse = (cat: string) => {
     setCollapsedCats((prev) => {
@@ -661,255 +684,446 @@ export default function CatalogPage() {
     });
   });
 
+  const compareIds = new Set(compareBikes.map((bike) => bike.id));
+  const compareReady = compareBikes.length >= 2;
+  const resultCountLabel = showFavoritesOnly ? `${displayBikes.length}件のお気に入り候補` : `${total}件の候補`;
+  const explorationTitle = hasFilters
+    ? "条件を足し引きしながら候補を整理しています"
+    : "まずは入口を決めて、気になる軸から深掘りできます";
+  const explorationCopy = hasFilters
+    ? "探索開始から基本条件、詳細条件、比較・保存の順に見直すと、今の条件を崩さずに候補を整えやすくなります。"
+    : "車名検索やおすすめ条件で広く見始めてから、免許・体格・タグで徐々に絞り込めます。";
+  const emptyStateTitle = hasFilters
+    ? "条件を少し緩めると候補が見つかる可能性があります"
+    : "表示できる候補がまだ見つかっていません";
+  const emptyStateCopy = showFavoritesOnly
+    ? "お気に入りだけ表示しているため候補が空になっています。表示条件を戻すか、一覧全体から探し直してください。"
+    : "現在の条件では一致するバイクがありません。直前の条件を1つ外すか、クイックスタートから探し直してください。";
+  const recoveryActions: Array<{ key: string; label: string; onClick: () => void }> = [];
+
+  if (showFavoritesOnly) {
+    recoveryActions.push({
+      key: "recover-favorites",
+      label: "お気に入りのみ表示を解除",
+      onClick: () => {
+        setShowFavoritesOnly(false);
+        setPage(1);
+      },
+    });
+  }
+
+  if (searchQuery) {
+    recoveryActions.push({
+      key: "recover-search",
+      label: `検索「${searchQuery}」を外す`,
+      onClick: () => {
+        setSearchQuery("");
+        setPage(1);
+      },
+    });
+  }
+
+  const firstSelectedTag = [...selectedTags]
+    .map((tagId) => tags.find((tag) => tag.id === tagId) ?? null)
+    .find((tag): tag is Tag => tag != null);
+  if (firstSelectedTag) {
+    recoveryActions.push({
+      key: `recover-tag-${firstSelectedTag.id}`,
+      label: `タグ「${firstSelectedTag.name}」を外す`,
+      onClick: () => toggleTag(firstSelectedTag.id),
+    });
+  }
+
+  if (licenseClass) {
+    recoveryActions.push({
+      key: "recover-license",
+      label: "免許条件を外す",
+      onClick: () => {
+        setLicenseClass("");
+        setPage(1);
+      },
+    });
+  }
+
+  if (inspection) {
+    recoveryActions.push({
+      key: "recover-inspection",
+      label: "車検条件を外す",
+      onClick: () => {
+        setInspection("");
+        setPage(1);
+      },
+    });
+  }
+
+  const firstRangeField = RANGE_FIELDS.find((field) => {
+    const range = ranges[field.key];
+    return range.min || range.max;
+  });
+  if (firstRangeField) {
+    recoveryActions.push({
+      key: `recover-range-${firstRangeField.key}`,
+      label: `${firstRangeField.label} の条件を外す`,
+      onClick: () => {
+        setRanges((prev) => ({
+          ...prev,
+          [firstRangeField.key]: { min: "", max: "" },
+        }));
+        setPage(1);
+      },
+    });
+  }
+
+  if (statusFilter) {
+    recoveryActions.push({
+      key: "recover-status",
+      label: "ステータス条件を外す",
+      onClick: () => {
+        setStatusFilter("");
+        setPage(1);
+      },
+    });
+  }
+
+  const quickJumpActions = [
+    { key: "start", label: "探索開始", description: "車名検索やおすすめ条件から始める", sectionId: "exploration-start" },
+    { key: "basics", label: "基本条件", description: "免許や体格などの前提を整える", sectionId: "exploration-basics" },
+    { key: "details", label: "詳細条件", description: "スペックとタグで深掘りする", sectionId: "exploration-details" },
+    { key: "organize", label: "比較・保存", description: "候補を比較しながら絞り込む", sectionId: "exploration-organize" },
+  ] as const;
+
   const sidebarContent = (
     <>
-      <div className="filter-search">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="search-icon">
-          <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        <input
-          type="text"
-          placeholder="車名で検索..."
-          value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-          className="search-input"
-        />
-      </div>
+      <section
+        className="sidebar-group"
+        ref={(node) => {
+          sidebarSectionRefs.current["exploration-start"] = node;
+        }}
+      >
+        <p className="sidebar-group-kicker">探索開始</p>
+        <h2 className="sidebar-group-title">入口を決めて探し始める</h2>
+        <p className="sidebar-group-copy">車名検索やおすすめ条件から始めて、候補が見えたら下の条件で深掘りします。</p>
 
-      <div className="filter-section">
-        <h3 className="filter-section-title">おすすめから探す</h3>
-        <div className="preset-list">
-          {PRESET_FILTERS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className="preset-btn"
-              onClick={() => applyPreset(preset)}
+        <div className="filter-search">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="search-icon">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M11 11L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            type="text"
+            placeholder="車名で検索..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            className="search-input"
+          />
+        </div>
+
+        <div className="filter-section">
+          <h3 className="filter-section-title">おすすめから探す</h3>
+          <div className="preset-list">
+            {PRESET_FILTERS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="preset-btn"
+                onClick={() => applyPreset(preset)}
+              >
+                <span className="preset-btn-title">{preset.label}</span>
+                <span className="preset-btn-description">{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="sidebar-group"
+        ref={(node) => {
+          sidebarSectionRefs.current["exploration-basics"] = node;
+        }}
+      >
+        <p className="sidebar-group-kicker">基本条件</p>
+        <h2 className="sidebar-group-title">乗れる条件と体格を整える</h2>
+        <p className="sidebar-group-copy">免許や車検条件を先に決めておくと、あとから細かい比較をしやすくなります。</p>
+
+        <div className="filter-section">
+          <h3 className="filter-section-title">免許・車検で絞り込み</h3>
+          <div className="range-field">
+            <label className="range-label">免許区分</label>
+            <select
+              value={licenseClass}
+              onChange={(e) => { setLicenseClass(e.target.value); setPage(1); }}
+              className="filter-select"
             >
-              <span className="preset-btn-title">{preset.label}</span>
-              <span className="preset-btn-description">{preset.description}</span>
-            </button>
+              {LICENSE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="range-field">
+            <label className="range-label">車検有無</label>
+            <select
+              value={inspection}
+              onChange={(e) => { setInspection(e.target.value); setPage(1); }}
+              className="filter-select"
+            >
+              {INSPECTION_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="filter-section">
+          <h3 className="filter-section-title">あなたの体格</h3>
+          <p className="filter-section-copy">ここで入力した値は一覧の足つき・PW比の目安表示に反映されます。</p>
+          <div className="range-field">
+            <label className="range-label">身長 (cm)</label>
+            <input
+              type="number"
+              placeholder="例: 170"
+              value={userHeight}
+              onChange={(e) => setUserHeight(e.target.value)}
+              className="range-input"
+            />
+          </div>
+          <div className="range-field">
+            <label className="range-label">体重 (kg)</label>
+            <input
+              type="number"
+              placeholder="例: 65"
+              value={userWeight}
+              onChange={(e) => setUserWeight(e.target.value)}
+              className="range-input"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="sidebar-group"
+        ref={(node) => {
+          sidebarSectionRefs.current["exploration-details"] = node;
+        }}
+      >
+        <p className="sidebar-group-kicker">詳細条件</p>
+        <h2 className="sidebar-group-title">スペックとタグで深掘りする</h2>
+        <p className="sidebar-group-copy">候補が見えてきたら、排気量や装備タグで違いを詰めていきます。</p>
+
+        <div className="filter-section">
+          <h3 className="filter-section-title">スペックで絞り込み</h3>
+          {RANGE_FIELDS.map((field) => (
+            <div key={field.key} className="range-field">
+              <label className="range-label">{field.label}</label>
+              <div className="range-inputs">
+                <input
+                  type="number"
+                  placeholder="最小"
+                  value={ranges[field.key].min}
+                  onChange={(e) => updateRange(field.key, "min", e.target.value)}
+                  className="range-input"
+                />
+                <span className="range-separator">—</span>
+                <input
+                  type="number"
+                  placeholder="最大"
+                  value={ranges[field.key].max}
+                  onChange={(e) => updateRange(field.key, "max", e.target.value)}
+                  className="range-input"
+                />
+              </div>
+            </div>
           ))}
         </div>
-      </div>
 
-      {hasFilters && (
-        <div className="filter-actions">
-          <button onClick={clearAll} className="btn-clear">
-            条件クリア
-          </button>
-          <button onClick={copyFilterUrl} className="btn-copy-url">
-            URLをコピー
-          </button>
+        <div className="filter-section">
+          <h3 className="filter-section-title">タグで絞り込み</h3>
+          {sortedCategories.map((cat) => {
+            const isCollapsed = collapsedCats.has(cat);
+            const catTags = tags.filter((t) => t.category === cat);
+            const selectedCount = catTags.filter((t) => selectedTags.has(t.id)).length;
+            return (
+              <div key={cat} className="tag-category">
+                <div className="tag-category-header">
+                  <div
+                    onClick={() => toggleCollapse(cat)}
+                    className="tag-category-label"
+                  >
+                    <svg
+                      width="12" height="12" viewBox="0 0 12 12"
+                      className="chevron-icon"
+                      style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0)" }}
+                    >
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                    <span className="tag-category-name">
+                      {CATEGORY_LABEL[cat] ?? cat}
+                    </span>
+                    {selectedCount > 0 && (
+                      <span className="tag-count-badge">{selectedCount}</span>
+                    )}
+                  </div>
+                  <div className="tag-category-actions">
+                    <button
+                      ref={(node) => {
+                        helpButtonRefs.current[cat] = node;
+                      }}
+                      type="button"
+                      className="category-help-btn"
+                      aria-label={`${CATEGORY_LABEL[cat] ?? cat} の説明を開く`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openHelp(cat);
+                      }}
+                    >
+                      ?
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectionMode(cat);
+                      }}
+                      className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
+                      title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
+                    >
+                      {singleSelectCats.has(cat) ? "AND" : "OR"}
+                    </button>
+                  </div>
+                </div>
+                {!isCollapsed && (
+                  cat === "maker" ? (
+                    <div className="tag-list maker-tag-list">
+                      {groupMakerTags(catTags).map((group) => (
+                        <div key={group.key} className="maker-tag-group">
+                          <div className="maker-tag-group-title">{group.label}</div>
+                          <div className="maker-tag-buttons">
+                            {renderTagButtons(group.tags)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="tag-list">
+                      {renderTagButtons(catTags)}
+                    </div>
+                  )
+                )}
+              </div>
+            );
+          })}
         </div>
-      )}
+      </section>
 
-      <div className="filter-section">
-        <h3 className="filter-section-title">表示設定</h3>
-        <div className="range-field">
-          <label className="range-label">並び替え</label>
-          <select
-            value={sortKey}
-            onChange={(e) => { setSortKey(e.target.value); setPage(1); }}
-            className="filter-select"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="range-field">
-          <label className="range-label">ステータス</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="filter-select"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="range-field">
-          <label className="range-label">表示件数</label>
-          <select
-            value={String(pageSize)}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="filter-select"
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>{size}件</option>
-            ))}
-          </select>
-        </div>
-        <label className="filter-checkbox">
-          <input
-            type="checkbox"
-            checked={showFavoritesOnly}
-            onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-          />
-          お気に入りのみ表示
-        </label>
-      </div>
+      <section
+        className="sidebar-group"
+        ref={(node) => {
+          sidebarSectionRefs.current["exploration-organize"] = node;
+        }}
+      >
+        <p className="sidebar-group-kicker">比較・保存・表示</p>
+        <h2 className="sidebar-group-title">候補を並べて整理する</h2>
+        <p className="sidebar-group-copy">比較とお気に入りを使って候補を残しつつ、一覧の見え方もここで整えます。</p>
 
-      <div className="filter-section">
-        <h3 className="filter-section-title">あなたの体格</h3>
-        <div className="range-field">
-          <label className="range-label">身長 (cm)</label>
-          <input
-            type="number"
-            placeholder="例: 170"
-            value={userHeight}
-            onChange={(e) => setUserHeight(e.target.value)}
-            className="range-input"
-          />
-        </div>
-        <div className="range-field">
-          <label className="range-label">体重 (kg)</label>
-          <input
-            type="number"
-            placeholder="例: 65"
-            value={userWeight}
-            onChange={(e) => setUserWeight(e.target.value)}
-            className="range-input"
-          />
-        </div>
-      </div>
-
-      <div className="filter-section">
-        <h3 className="filter-section-title">免許・車検で絞り込み</h3>
-        <div className="range-field">
-          <label className="range-label">免許区分</label>
-          <select
-            value={licenseClass}
-            onChange={(e) => { setLicenseClass(e.target.value); setPage(1); }}
-            className="filter-select"
-          >
-            {LICENSE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="range-field">
-          <label className="range-label">車検有無</label>
-          <select
-            value={inspection}
-            onChange={(e) => { setInspection(e.target.value); setPage(1); }}
-            className="filter-select"
-          >
-            {INSPECTION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="filter-section">
-        <h3 className="filter-section-title">スペックで絞り込み</h3>
-        {RANGE_FIELDS.map((field) => (
-          <div key={field.key} className="range-field">
-            <label className="range-label">{field.label}</label>
-            <div className="range-inputs">
-              <input
-                type="number"
-                placeholder="最小"
-                value={ranges[field.key].min}
-                onChange={(e) => updateRange(field.key, "min", e.target.value)}
-                className="range-input"
-              />
-              <span className="range-separator">—</span>
-              <input
-                type="number"
-                placeholder="最大"
-                value={ranges[field.key].max}
-                onChange={(e) => updateRange(field.key, "max", e.target.value)}
-                className="range-input"
-              />
+        <div className="comparison-panel">
+          <div className="comparison-panel-header">
+            <div>
+              <h3 className="filter-section-title comparison-panel-title">比較・保存の状況</h3>
+              <p className="comparison-panel-copy">
+                {compareReady
+                  ? "比較候補が揃っています。今すぐ一覧の外に出ずに見比べられます。"
+                  : "気になる車両を2台以上選ぶと比較できます。お気に入り数もここで確認できます。"}
+              </p>
+            </div>
+            <div className="comparison-stats">
+              <span className="comparison-stat"><strong>{compareBikes.length}</strong>比較</span>
+              <span className="comparison-stat"><strong>{favorites.size}</strong>保存</span>
             </div>
           </div>
-        ))}
-      </div>
-
-      <div className="filter-section">
-        <h3 className="filter-section-title">タグで絞り込み</h3>
-        {sortedCategories.map((cat) => {
-          const isCollapsed = collapsedCats.has(cat);
-          const catTags = tags.filter((t) => t.category === cat);
-          const selectedCount = catTags.filter((t) => selectedTags.has(t.id)).length;
-          return (
-            <div key={cat} className="tag-category">
-              <div className="tag-category-header">
-                <div
-                  onClick={() => toggleCollapse(cat)}
-                  className="tag-category-label"
-                >
-                  <svg
-                    width="12" height="12" viewBox="0 0 12 12"
-                    className="chevron-icon"
-                    style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0)" }}
-                  >
-                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                  </svg>
-                  <span className="tag-category-name">
-                    {CATEGORY_LABEL[cat] ?? cat}
-                  </span>
-                  {selectedCount > 0 && (
-                    <span className="tag-count-badge">{selectedCount}</span>
-                  )}
-                </div>
-                <div className="tag-category-actions">
-                  <button
-                    ref={(node) => {
-                      helpButtonRefs.current[cat] = node;
-                    }}
-                    type="button"
-                    className="category-help-btn"
-                    aria-label={`${CATEGORY_LABEL[cat] ?? cat} の説明を開く`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openHelp(cat);
-                    }}
-                  >
-                    ?
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSelectionMode(cat);
-                    }}
-                    className={`mode-toggle ${singleSelectCats.has(cat) ? "mode-single" : "mode-multi"}`}
-                    title={singleSelectCats.has(cat) ? "AND: すべて一致" : "OR: いずれか一致"}
-                  >
-                    {singleSelectCats.has(cat) ? "AND" : "OR"}
-                  </button>
-                </div>
-              </div>
-              {!isCollapsed && (
-                cat === "maker" ? (
-                  <div className="tag-list maker-tag-list">
-                    {groupMakerTags(catTags).map((group) => (
-                      <div key={group.key} className="maker-tag-group">
-                        <div className="maker-tag-group-title">{group.label}</div>
-                        <div className="maker-tag-buttons">
-                          {renderTagButtons(group.tags)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="tag-list">
-                    {renderTagButtons(catTags)}
-                  </div>
-                )
-              )}
+          {compareBikes.length > 0 ? (
+            <div className="comparison-chip-list">
+              {compareBikes.map((bike) => (
+                <span key={bike.id} className="compare-tray-chip">
+                  {bike.name}
+                  <button className="compare-chip-remove" onClick={() => toggleCompare(bike)}>&times;</button>
+                </span>
+              ))}
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            <p className="comparison-empty-note">まだ比較候補はありません。カードの「比較に追加」から3台まで選べます。</p>
+          )}
+          <div className="comparison-panel-actions">
+            <button
+              type="button"
+              className="compare-tray-open comparison-panel-open"
+              onClick={() => setShowCompare(true)}
+              disabled={!compareReady}
+            >
+              比較を見る
+            </button>
+            <button
+              type="button"
+              className="btn-copy-url comparison-panel-secondary"
+              onClick={() => setShowFavoritesOnly((prev) => !prev)}
+            >
+              {showFavoritesOnly ? "一覧全体を表示" : "お気に入りだけ表示"}
+            </button>
+          </div>
+        </div>
+
+        {hasFilters && (
+          <div className="filter-actions">
+            <button onClick={clearAll} className="btn-clear">
+              条件クリア
+            </button>
+            <button onClick={copyFilterUrl} className="btn-copy-url">
+              URLをコピー
+            </button>
+          </div>
+        )}
+
+        <div className="filter-section">
+          <h3 className="filter-section-title">表示設定</h3>
+          <div className="range-field">
+            <label className="range-label">並び替え</label>
+            <select
+              value={sortKey}
+              onChange={(e) => { setSortKey(e.target.value); setPage(1); }}
+              className="filter-select"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="range-field">
+            <label className="range-label">ステータス</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="filter-select"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="range-field">
+            <label className="range-label">表示件数</label>
+            <select
+              value={String(pageSize)}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              className="filter-select"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>{size}件</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
     </>
   );
 
@@ -933,7 +1147,7 @@ export default function CatalogPage() {
                 タグやスペックで絞り込んでお気に入りの一台を見つけよう
               </p>
             </div>
-            <span className="result-count">{total}件</span>
+            <span className="result-count">{resultCountLabel}</span>
           </div>
 
           <section className="header-active-filters" aria-label="現在の検索条件">
@@ -969,22 +1183,77 @@ export default function CatalogPage() {
         </aside>
 
         <main className="main-content">
-          <div className="card-grid">
-            {displayBikes.map((bike) => (
-              <div
-                key={bike.id}
-                className="bike-card"
-                role="link"
-                tabIndex={0}
-                onClick={() => openBikeDetails(bike.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openBikeDetails(bike.id);
-                  }
-                }}
-              >
-                <div className="card-body">
+          <section className="catalog-structure-grid">
+            <article className="catalog-structure-card">
+              <p className="catalog-structure-kicker">探索の流れ</p>
+              <h2 className="catalog-structure-title">{explorationTitle}</h2>
+              <p className="catalog-structure-copy">{explorationCopy}</p>
+              <div className="catalog-step-grid">
+                {quickJumpActions.map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className="catalog-step-card"
+                    onClick={() => scrollToSidebarSection(action.sectionId)}
+                  >
+                    <strong>{action.label}</strong>
+                    <span>{action.description}</span>
+                  </button>
+                ))}
+              </div>
+            </article>
+
+            <article className="catalog-structure-card catalog-structure-card-emphasis">
+              <p className="catalog-structure-kicker">比較・保存</p>
+              <h2 className="catalog-structure-title">
+                {compareBikes.length > 0 ? `${compareBikes.length}台を比較候補として保持中` : "気になる候補を比較と保存で残せます"}
+              </h2>
+              <p className="catalog-structure-copy">
+                {compareReady
+                  ? "比較候補が揃っているので、一覧を崩さずにスペック比較へ進めます。"
+                  : "カードから比較に追加すると、ページ移動後も候補を保持したまま見比べられます。"}
+              </p>
+              <div className="catalog-structure-stats">
+                <span className="comparison-stat"><strong>{compareBikes.length}</strong>比較候補</span>
+                <span className="comparison-stat"><strong>{favorites.size}</strong>お気に入り</span>
+              </div>
+              <div className="catalog-structure-actions">
+                <button
+                  type="button"
+                  className="compare-tray-open"
+                  onClick={() => setShowCompare(true)}
+                  disabled={!compareReady}
+                >
+                  比較を見る
+                </button>
+                <button
+                  type="button"
+                  className="btn-copy-url"
+                  onClick={() => scrollToSidebarSection("exploration-organize")}
+                >
+                  比較・保存を開く
+                </button>
+              </div>
+            </article>
+          </section>
+
+          {displayBikes.length > 0 ? (
+            <div className="card-grid">
+              {displayBikes.map((bike) => (
+                <div
+                  key={bike.id}
+                  className="bike-card"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => openBikeDetails(bike.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openBikeDetails(bike.id);
+                    }
+                  }}
+                >
+                  <div className="card-body">
                   <div className="card-header-row">
                     <div className="card-header-left">
                       <h3 className="card-title">
@@ -1115,22 +1384,65 @@ export default function CatalogPage() {
                     ))}
                   </div>
                   <button
-                    className={`compare-btn ${compareIds.includes(bike.id) ? "compare-btn-active" : ""}`}
+                    className={`compare-btn ${compareIds.has(bike.id) ? "compare-btn-active" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleCompare(bike.id);
+                      toggleCompare(bike);
                     }}
-                    disabled={!compareIds.includes(bike.id) && compareIds.length >= 3}
+                    disabled={!compareIds.has(bike.id) && compareBikes.length >= 3}
                   >
-                    {compareIds.includes(bike.id) ? "比較から外す" : "比較に追加"}
+                    {compareIds.has(bike.id) ? "比較から外す" : "比較に追加"}
                   </button>
                 </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <section className="empty-state-panel">
+              <p className="empty-state-kicker">候補が見つかりません</p>
+              <h2 className="empty-state-title">{emptyStateTitle}</h2>
+              <p className="empty-state-copy">{emptyStateCopy}</p>
+              {activeFilterChips.length > 0 && (
+                <div className="active-filters-list empty-state-filter-list">
+                  {activeFilterChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      className="active-filter-chip"
+                      onClick={chip.onRemove}
+                    >
+                      <span>{chip.label}</span>
+                      <span className="active-filter-chip-remove" aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="empty-state-actions">
+                {recoveryActions.slice(0, 3).map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className="btn-copy-url"
+                    onClick={action.onClick}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+                {hasFilters && (
+                  <button type="button" className="btn-clear empty-state-clear" onClick={clearAll}>
+                    条件をすべて外す
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-copy-url"
+                  onClick={() => scrollToSidebarSection("exploration-start")}
+                >
+                  クイックスタートへ戻る
+                </button>
               </div>
-            ))}
-            {displayBikes.length === 0 && (
-              <p className="no-results">該当するバイクがありません</p>
-            )}
-          </div>
+            </section>
+          )}
 
           {totalPages > 1 && (
             <div className="pagination">
@@ -1271,22 +1583,22 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {compareIds.length > 0 && !showCompare && (
+      {compareBikes.length > 0 && !showCompare && (
         <div className="compare-tray">
           <div className="compare-tray-content">
-            <span className="compare-tray-label">比較: {compareIds.length}台選択中</span>
+            <span className="compare-tray-label">比較: {compareBikes.length}台選択中</span>
             <div className="compare-tray-bikes">
               {compareBikes.map((b) => (
                 <span key={b.id} className="compare-tray-chip">
                   {b.name}
-                  <button className="compare-chip-remove" onClick={() => toggleCompare(b.id)}>&times;</button>
+                  <button className="compare-chip-remove" onClick={() => toggleCompare(b)}>&times;</button>
                 </span>
               ))}
             </div>
             <button
               className="compare-tray-open"
               onClick={() => setShowCompare(true)}
-              disabled={compareIds.length < 2}
+              disabled={!compareReady}
             >
               比較する
             </button>

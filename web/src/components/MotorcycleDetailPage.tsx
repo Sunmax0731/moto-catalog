@@ -1,7 +1,32 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { fetchJson } from "../api/client";
-import type { Motorcycle, PaginatedResponse } from "../types";
+import type { Motorcycle, PaginatedResponse, Tag } from "../types";
+
+const DETAIL_LICENSE_OPTIONS = [
+  { label: "原付（〜50cc）", value: "gentsuki" },
+  { label: "小型限定普通二輪（〜125cc）", value: "kogata" },
+  { label: "普通自動二輪（〜400cc）", value: "futsu" },
+  { label: "大型自動二輪（全排気量）", value: "ogata" },
+] as const;
+
+const DETAIL_INSPECTION_OPTIONS = [
+  { label: "車検なし（〜250cc）", value: "none" },
+  { label: "車検あり（251cc〜）", value: "required" },
+] as const;
+
+const DETAIL_STATUS_OPTIONS = [
+  { label: "現行モデル", value: "current" },
+  { label: "生産終了", value: "discontinued" },
+] as const;
+
+const DETAIL_RANGE_FIELDS = [
+  { key: "d", min: "dmin", max: "dmax", label: "排気量 (cc)" },
+  { key: "y", min: "ymin", max: "ymax", label: "年式" },
+  { key: "p", min: "pmin", max: "pmax", label: "最高出力 (PS)" },
+  { key: "t", min: "tmin", max: "tmax", label: "最大トルク (N·m)" },
+  { key: "sh", min: "shmin", max: "shmax", label: "シート高 (mm)" },
+] as const;
 
 function getGoogleImageSearchUrl(bike: Pick<Motorcycle, "maker" | "name">) {
   return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bike.maker} ${bike.name} バイク`)}`;
@@ -44,12 +69,61 @@ function formatValue(value: number | string | null | undefined, suffix = "") {
   return `${value}${suffix}`;
 }
 
+function getOptionLabel(
+  options: readonly { label: string; value: string }[],
+  value: string,
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function getSearchContextLabels(search: string, tags: Tag[]) {
+  const params = new URLSearchParams(search);
+  const labels: string[] = [];
+
+  const searchQuery = params.get("q");
+  if (searchQuery) {
+    labels.push(`検索: ${searchQuery}`);
+  }
+
+  const tagIds = params.get("tags")?.split(",").map(Number).filter((id) => Number.isFinite(id)) ?? [];
+  tagIds.forEach((tagId) => {
+    const tag = tags.find((item) => item.id === tagId);
+    if (tag) {
+      labels.push(`タグ: ${tag.name}`);
+    }
+  });
+
+  const licenseClass = params.get("license");
+  if (licenseClass) {
+    labels.push(`免許: ${getOptionLabel(DETAIL_LICENSE_OPTIONS, licenseClass)}`);
+  }
+
+  const inspection = params.get("inspection");
+  if (inspection) {
+    labels.push(`車検: ${getOptionLabel(DETAIL_INSPECTION_OPTIONS, inspection)}`);
+  }
+
+  const statusFilter = params.get("status");
+  if (statusFilter) {
+    labels.push(`ステータス: ${getOptionLabel(DETAIL_STATUS_OPTIONS, statusFilter)}`);
+  }
+
+  DETAIL_RANGE_FIELDS.forEach((field) => {
+    const min = params.get(field.min);
+    const max = params.get(field.max);
+    if (!min && !max) return;
+    labels.push(`${field.label}: ${min || "下限なし"}〜${max || "上限なし"}`);
+  });
+
+  return labels;
+}
+
 export default function MotorcycleDetailPage() {
   const { motorcycleId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const [bike, setBike] = useState<Motorcycle | null>(null);
   const [similarBikes, setSimilarBikes] = useState<Array<{ bike: Motorcycle; sharedTags: Motorcycle["tags"] }>>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -60,8 +134,9 @@ export default function MotorcycleDetailPage() {
     Promise.all([
       fetchJson<Motorcycle>(`/motorcycles/${motorcycleId}`),
       fetchJson<PaginatedResponse<Motorcycle>>("/motorcycles?limit=500"),
+      fetchJson<Tag[]>("/motorcycles/tags/all"),
     ])
-      .then(([currentBike, response]) => {
+      .then(([currentBike, response, nextTags]) => {
         if (cancelled) return;
 
         const nextSimilar = response.items
@@ -77,12 +152,14 @@ export default function MotorcycleDetailPage() {
 
         setBike(currentBike);
         setSimilarBikes(nextSimilar);
+        setAllTags(nextTags);
         setError("");
       })
       .catch(() => {
         if (cancelled) return;
         setBike(null);
         setSimilarBikes([]);
+        setAllTags([]);
         setError("車両詳細の読み込みに失敗しました。");
       });
 
@@ -91,13 +168,14 @@ export default function MotorcycleDetailPage() {
     };
   }, [motorcycleId]);
 
+  const catalogReturnTo = location.search ? `/${location.search}` : "/";
+  const searchContextLabels = getSearchContextLabels(location.search, allTags);
+
   if (!motorcycleId) {
     return (
       <div className="detail-page">
         <div className="detail-shell">
-          <button type="button" className="detail-back-btn" onClick={() => navigate("/")}>
-            一覧へ戻る
-          </button>
+          <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
           <p className="detail-message">車両IDが指定されていません。</p>
         </div>
       </div>
@@ -120,9 +198,7 @@ export default function MotorcycleDetailPage() {
     return (
       <div className="detail-page">
         <div className="detail-shell">
-          <button type="button" className="detail-back-btn" onClick={() => navigate("/")}>
-            一覧へ戻る
-          </button>
+          <Link className="detail-back-btn" to={catalogReturnTo}>一覧へ戻る</Link>
           <p className="detail-message">{error || "車両が見つかりません。"}</p>
         </div>
       </div>
@@ -135,9 +211,7 @@ export default function MotorcycleDetailPage() {
     <div className="detail-page">
       <div className="detail-shell">
         <div className="detail-toolbar">
-          <button type="button" className="detail-back-btn" onClick={() => navigate(-1)}>
-            一覧へ戻る
-          </button>
+          <Link className="detail-back-btn" to={catalogReturnTo}>結果一覧へ戻る</Link>
           <a
             className="detail-image-link"
             href={getGoogleImageSearchUrl(bike)}
@@ -147,6 +221,29 @@ export default function MotorcycleDetailPage() {
             Google画像検索
           </a>
         </div>
+
+        <section className="detail-context-card">
+          <div className="detail-context-copy">
+            <p className="detail-context-kicker">一覧の探索条件</p>
+            <h2 className="detail-context-title">
+              {searchContextLabels.length > 0 ? "この条件から見つけた車両です" : "一覧の流れを保ったまま詳細を見ています"}
+            </h2>
+            <p className="detail-context-description">
+              {searchContextLabels.length > 0
+                ? "結果一覧へ戻ると、同じ条件のまま他の候補も見比べられます。"
+                : "絞り込み条件がない状態で一覧から開いています。結果一覧へ戻ってそのまま探し続けられます。"}
+            </p>
+          </div>
+          {searchContextLabels.length > 0 ? (
+            <div className="detail-context-tags">
+              {searchContextLabels.map((label) => (
+                <span key={label} className="card-tag">{label}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="detail-context-empty">検索条件なし</p>
+          )}
+        </section>
 
         <section className="detail-hero">
           <div className="detail-hero-main">

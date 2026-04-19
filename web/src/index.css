@@ -240,6 +240,45 @@ body {
   display: none;
 }
 
+.sidebar-group {
+  display: grid;
+  gap: var(--spacingM);
+  margin-bottom: var(--spacingXXL);
+  padding-bottom: var(--spacingXXL);
+  border-bottom: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  scroll-margin-top: var(--spacingL);
+}
+
+.sidebar-group:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sidebar-group-kicker {
+  margin: 0;
+  font-size: var(--fontSizeBase100);
+  line-height: var(--lineHeightBase100);
+  font-weight: var(--fontWeightSemibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--colorBrandForeground1);
+}
+
+.sidebar-group-title {
+  margin: 0;
+  font-size: var(--fontSizeBase500);
+  line-height: var(--lineHeightBase500);
+  color: var(--colorNeutralForeground1);
+}
+
+.sidebar-group-copy {
+  margin: 0;
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase300);
+}
+
 /* ===== Filter Components ===== */
 .filter-search {
   position: relative;
@@ -312,6 +351,13 @@ body {
   border-bottom: none;
   margin-bottom: 0;
   padding-bottom: 0;
+}
+
+.filter-section-copy {
+  margin: 0 0 var(--spacingM);
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
 }
 
 .preset-list {
@@ -621,6 +667,125 @@ body {
   min-width: 0;
 }
 
+.catalog-structure-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacingXL);
+  margin-bottom: var(--spacingXXL);
+}
+
+.catalog-structure-card {
+  display: grid;
+  gap: var(--spacingM);
+  padding: var(--spacingXL);
+  background: var(--colorNeutralBackground1);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadius2XLarge);
+  box-shadow: var(--shadow2);
+}
+
+.catalog-structure-card-emphasis {
+  background: linear-gradient(180deg, #f9fcff 0%, #edf5fd 100%);
+  border-color: #cfe2f5;
+}
+
+.catalog-structure-kicker {
+  margin: 0;
+  font-size: var(--fontSizeBase100);
+  line-height: var(--lineHeightBase100);
+  font-weight: var(--fontWeightSemibold);
+  color: var(--colorBrandForeground1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.catalog-structure-title {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 32px);
+  line-height: 1.15;
+  color: var(--colorNeutralForeground1);
+}
+
+.catalog-structure-copy {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  line-height: var(--lineHeightBase300);
+}
+
+.catalog-step-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacingS);
+}
+
+.catalog-step-card {
+  display: grid;
+  gap: var(--spacingXXS);
+  padding: var(--spacingL);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke1);
+  border-radius: var(--borderRadiusXLarge);
+  background: var(--colorNeutralBackground1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.catalog-step-card:hover {
+  border-color: var(--colorBrandStroke1);
+  background: #f6fbff;
+  transform: translateY(-1px);
+}
+
+.catalog-step-card strong {
+  color: var(--colorNeutralForeground1);
+  font-size: var(--fontSizeBase300);
+}
+
+.catalog-step-card span {
+  color: var(--colorNeutralForeground3);
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
+}
+
+.catalog-structure-stats,
+.comparison-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingS);
+}
+
+.comparison-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--spacingXS);
+  padding: var(--spacingXS) var(--spacingM);
+  border-radius: var(--borderRadiusCircular);
+  background: #eef5ff;
+  color: var(--colorBrandForeground1);
+  font-size: var(--fontSizeBase200);
+  font-weight: var(--fontWeightSemibold);
+}
+
+.comparison-stat strong {
+  font-size: var(--fontSizeBase400);
+  line-height: 1;
+}
+
+.catalog-structure-actions,
+.comparison-panel-actions,
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingS);
+}
+
+.catalog-structure-actions > .btn-copy-url,
+.comparison-panel-actions > .btn-copy-url,
+.empty-state-actions > .btn-copy-url,
+.empty-state-actions > .btn-clear {
+  width: auto;
+}
+
 .detail-page {
   min-height: 100vh;
   background: var(--colorNeutralPageBackground);
@@ -638,6 +803,52 @@ body {
   align-items: center;
   gap: var(--spacingM);
   margin-bottom: var(--spacingL);
+}
+
+.detail-context-card {
+  display: grid;
+  gap: var(--spacingM);
+  padding: var(--spacingXL);
+  margin-bottom: var(--spacingL);
+  background: linear-gradient(180deg, #fff 0%, #f7fafc 100%);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadius2XLarge);
+  box-shadow: var(--shadow2);
+}
+
+.detail-context-copy {
+  display: grid;
+  gap: var(--spacingXS);
+}
+
+.detail-context-kicker {
+  margin: 0;
+  color: var(--colorBrandForeground1);
+  font-size: var(--fontSizeBase100);
+  line-height: var(--lineHeightBase100);
+  font-weight: var(--fontWeightSemibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detail-context-title {
+  margin: 0;
+  font-size: var(--fontSizeBase500);
+  line-height: var(--lineHeightBase500);
+  color: var(--colorNeutralForeground1);
+}
+
+.detail-context-description,
+.detail-context-empty {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  line-height: var(--lineHeightBase300);
+}
+
+.detail-context-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingXS);
 }
 
 .detail-back-btn,
@@ -865,6 +1076,39 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--spacingXL);
+}
+
+.comparison-panel {
+  display: grid;
+  gap: var(--spacingM);
+  padding: var(--spacingL);
+  border-radius: var(--borderRadiusXLarge);
+  background: linear-gradient(180deg, #f8fbfe 0%, #eef5fd 100%);
+  border: var(--strokeWidthThin) solid #d8e6f3;
+}
+
+.comparison-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacingM);
+}
+
+.comparison-panel-title {
+  margin-bottom: var(--spacingXS);
+}
+
+.comparison-panel-copy,
+.comparison-empty-note {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  line-height: var(--lineHeightBase300);
+}
+
+.comparison-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacingXS);
 }
 
 /* ===== Bike Card (背景との色相差を確保) ===== */
@@ -1713,6 +1957,43 @@ body {
   line-height: var(--lineHeightBase300);
 }
 
+.empty-state-panel {
+  display: grid;
+  gap: var(--spacingM);
+  padding: var(--spacingXXL);
+  background: var(--colorNeutralBackground1);
+  border: var(--strokeWidthThin) solid var(--colorNeutralStroke2);
+  border-radius: var(--borderRadius2XLarge);
+  box-shadow: var(--shadow2);
+}
+
+.empty-state-kicker {
+  margin: 0;
+  color: var(--colorBrandForeground1);
+  font-size: var(--fontSizeBase100);
+  line-height: var(--lineHeightBase100);
+  font-weight: var(--fontWeightSemibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.empty-state-title {
+  margin: 0;
+  font-size: clamp(24px, 2.8vw, 32px);
+  line-height: 1.15;
+  color: var(--colorNeutralForeground1);
+}
+
+.empty-state-copy {
+  margin: 0;
+  color: var(--colorNeutralForeground2);
+  line-height: var(--lineHeightBase300);
+}
+
+.empty-state-filter-list {
+  gap: var(--spacingXS);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
   .sidebar-toggle {
@@ -1766,6 +2047,35 @@ body {
 
   .main-content {
     padding: var(--spacingL);
+  }
+
+  .catalog-structure-grid,
+  .catalog-step-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-structure-card,
+  .detail-context-card,
+  .empty-state-panel {
+    padding: var(--spacingL);
+  }
+
+  .catalog-structure-actions,
+  .comparison-panel-actions,
+  .empty-state-actions {
+    flex-direction: column;
+  }
+
+  .catalog-structure-actions > .btn-copy-url,
+  .comparison-panel-actions > .btn-copy-url,
+  .comparison-panel-actions > .compare-tray-open,
+  .empty-state-actions > .btn-copy-url,
+  .empty-state-actions > .btn-clear {
+    width: 100%;
+  }
+
+  .comparison-panel-header {
+    flex-direction: column;
   }
 
   .app-header {
